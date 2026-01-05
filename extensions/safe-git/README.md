@@ -1,6 +1,6 @@
 # Safe Git Extension
 
-A pi coding agent extension that requires explicit user approval before any dangerous git operations.
+A pi coding agent extension that requires explicit user approval before dangerous git and GitHub CLI operations.
 
 ## Installation
 
@@ -16,12 +16,44 @@ npm run uninstall:safe-git
 
 **Important:** Restart pi after installing.
 
+## Configuration
+
+Add to `~/.pi/agent/settings.json`:
+
+```json
+{
+  "safeGit": {
+    "enabledByDefault": true,
+    "promptLevel": "medium"
+  }
+}
+```
+
+### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `enabledByDefault` | `true` | Enable protection for new sessions |
+| `promptLevel` | `"medium"` | `"high"`, `"medium"`, or `"none"` |
+
+### Prompt Levels
+
+- **high**: Only prompt for high-risk (force push, hard reset, etc.)
+- **medium**: Prompt for medium and high risk (default)
+- **none**: No prompts (effectively disabled)
+
 ## Protected Operations
 
 | Severity | Operations |
 |----------|------------|
 | 🔴 High | force push, hard reset, clean, stash drop/clear, delete branch, expire reflog |
-| 🟡 Medium | push, commit, rebase, merge, tag, cherry-pick, revert, apply patches |
+| 🟡 Medium | push, commit, rebase, merge, tag, cherry-pick, revert, apply patches, **gh CLI** |
+
+## Commands
+
+- `/safegit` - Toggle protection on/off for this session
+- `/safegit-level [high|medium|none]` - Set prompt level
+- `/safegit-status` - Show current status and settings
 
 ## Behavior
 
@@ -29,8 +61,6 @@ npm run uninstall:safe-git
 - **Non-interactive mode**: Blocks entirely (no approval possible = fail-safe)
 
 ## Example
-
-When the agent tries to push:
 
 ```
 🟡 Git push requires approval
@@ -57,10 +87,6 @@ The agent wants to run:
 This operation can cause data loss. Allow?
 [Yes] [No]
 ```
-
-## Why?
-
-By default, AI agents can run any git command. This extension adds a safety layer ensuring you approve state-changing operations before they execute. In headless/non-interactive mode, these operations are blocked entirely.
 
 ## License
 
