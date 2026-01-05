@@ -18,7 +18,7 @@
  * - Per-session control: Use /notify (toggle), /notify-enable, /notify-disable
  */
 
-import type { HookAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import * as child_process from "node:child_process";
 import { promisify } from "node:util";
 import * as fs from "node:fs/promises";
@@ -41,7 +41,7 @@ const DEFAULT_CONFIG: Required<BackgroundNotifyConfig> = {
   bringToFront: true,
 };
 
-export default function (pi: HookAPI) {
+export default function (pi: ExtensionAPI) {
   let startTime: number | undefined;
   let terminalPid: number | undefined;
   let terminalApp: string | undefined;
@@ -164,7 +164,7 @@ export default function (pi: HookAPI) {
       if (shouldBeep) actions.push("beeped");
       if (shouldBringToFront) actions.push("brought to front");
       const actionText = actions.length > 0 ? ` (${actions.join(", ")})` : "";
-      ctx.ui.notify(`Task completed in ${durationSec}s${actionText}`, "success");
+      ctx.ui.notify(`Task completed in ${durationSec}s${actionText}`, "info");
     }
   });
 }
@@ -315,7 +315,7 @@ end tell`;
  * Register slash commands for configuration
  */
 function registerCommands(
-  pi: HookAPI,
+  pi: ExtensionAPI,
   getTerminalApp: () => string | undefined,
   getTerminalPid: () => number | undefined,
   getTerminalTTY: () => string | undefined,
@@ -348,7 +348,7 @@ function registerCommands(
       setSessionBringToFrontOverride(newState);
       
       if (newState) {
-        ctx.ui.notify("🔔 Background notifications ON (beep + focus)", "success");
+        ctx.ui.notify("🔔 Background notifications ON (beep + focus)", "info");
         await playBeep().catch(() => {});
       } else {
         ctx.ui.notify("🔕 Background notifications OFF", "warning");
@@ -380,7 +380,7 @@ function registerCommands(
       }
       
       if (newState) {
-        ctx.ui.notify("🔊 Beep ON", "success");
+        ctx.ui.notify("🔊 Beep ON", "info");
         await playBeep().catch(() => {});
       } else {
         ctx.ui.notify("🔇 Beep OFF", "warning");
@@ -412,7 +412,7 @@ function registerCommands(
       }
       
       if (newState) {
-        ctx.ui.notify("🪟 Focus ON (bring terminal to front)", "success");
+        ctx.ui.notify("🪟 Focus ON (bring terminal to front)", "info");
       } else {
         ctx.ui.notify("⬜ Focus OFF", "warning");
       }
@@ -458,7 +458,7 @@ function registerCommands(
       await Promise.all(tasks);
 
       if (triggered.length > 0) {
-        ctx.ui.notify(`✅ Test complete! Triggered: ${triggered.join(" + ")}`, "success");
+        ctx.ui.notify(`✅ Test complete! Triggered: ${triggered.join(" + ")}`, "info");
       } else {
         ctx.ui.notify("⚠️ Test complete, but both beep and focus are disabled", "warning");
       }

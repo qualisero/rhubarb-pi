@@ -19,7 +19,7 @@
  * - a number: fixed character count
  */
 
-import type { HookAPI, HookContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
@@ -138,11 +138,11 @@ function writeColorState(state: ColorState): void {
   }
 }
 
-export default function (pi: HookAPI) {
+export default function (pi: ExtensionAPI) {
   let sessionColorIndex: number | null = null;
   let colorAssigned = false;
   let sessionEnabledOverride: boolean | null = null;
-  let currentCtx: HookContext | null = null;
+  let currentCtx: ExtensionContext | null = null;
   let resizeHandler: (() => void) | null = null;
 
   registerCommands(
@@ -158,7 +158,7 @@ export default function (pi: HookAPI) {
   /**
    * Set up resize listener to update color band width
    */
-  function setupResizeListener(ctx: HookContext, config: Required<SessionColorConfig>) {
+  function setupResizeListener(ctx: ExtensionContext, config: Required<SessionColorConfig>) {
     if (resizeHandler) {
       process.stdout.off("resize", resizeHandler);
     }
@@ -261,7 +261,7 @@ export default function (pi: HookAPI) {
   });
 }
 
-function getConfig(ctx: HookContext): Required<SessionColorConfig> {
+function getConfig(ctx: ExtensionContext): Required<SessionColorConfig> {
   const settings = (ctx as any).settingsManager?.getSettings() ?? {};
   return {
     ...DEFAULT_CONFIG,
@@ -269,7 +269,7 @@ function getConfig(ctx: HookContext): Required<SessionColorConfig> {
   };
 }
 
-function updateStatus(ctx: HookContext, config: Required<SessionColorConfig>, colorIndex: number) {
+function updateStatus(ctx: ExtensionContext, config: Required<SessionColorConfig>, colorIndex: number) {
   const color = COLOR_PALETTE[colorIndex];
   const count = config.blockCount === "full" 
     ? (process.stdout.columns || 80) 
@@ -280,7 +280,7 @@ function updateStatus(ctx: HookContext, config: Required<SessionColorConfig>, co
 }
 
 function manualSetColor(
-  ctx: HookContext,
+  ctx: ExtensionContext,
   config: Required<SessionColorConfig>,
   colorIndex: number,
   setColorIndex: (idx: number) => void,
@@ -299,7 +299,7 @@ function manualSetColor(
 }
 
 function registerCommands(
-  pi: HookAPI,
+  pi: ExtensionAPI,
   getColorIndex: () => number | null,
   setColorIndex: (idx: number) => void,
   getAssigned: () => boolean,
@@ -321,7 +321,7 @@ function registerCommands(
       setSessionOverride(newState);
 
       if (newState) {
-        ctx.ui.notify("🎨 Session color ON", "success");
+        ctx.ui.notify("🎨 Session color ON", "info");
         const colorIndex = getColorIndex();
         if (colorIndex !== null) {
           updateStatus(ctx, config, colorIndex);
@@ -356,7 +356,7 @@ function registerCommands(
         }
         manualSetColor(ctx, config, index, setColorIndex, () => setAssigned(true));
         const color = COLOR_PALETTE[index];
-        ctx.ui.notify(`Color set to index ${index} (ANSI ${color})`, "success");
+        ctx.ui.notify(`Color set to index ${index} (ANSI ${color})`, "info");
         return;
       }
 
@@ -387,7 +387,7 @@ function registerCommands(
       }
 
       manualSetColor(ctx, config, index, setColorIndex, () => setAssigned(true));
-      ctx.ui.notify(`Color set to index ${index}`, "success");
+      ctx.ui.notify(`Color set to index ${index}`, "info");
     },
   });
 
@@ -464,7 +464,7 @@ function registerCommands(
             sessionId: "",
             timestamp: Date.now(),
           });
-          ctx.ui.notify("Color sequence reset. Next session will start at color 0.", "success");
+          ctx.ui.notify("Color sequence reset. Next session will start at color 0.", "info");
           break;
         }
       }
@@ -482,7 +482,7 @@ function registerCommands(
       const nextIndex = (currentIndex + 1) % COLOR_PALETTE.length;
 
       manualSetColor(ctx, config, nextIndex, setColorIndex, () => setAssigned(true));
-      ctx.ui.notify(`Skipped to color ${nextIndex}`, "success");
+      ctx.ui.notify(`Skipped to color ${nextIndex}`, "info");
     },
   });
 }

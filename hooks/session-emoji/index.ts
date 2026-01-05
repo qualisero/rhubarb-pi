@@ -19,7 +19,7 @@
  * - Per-session control: Use /emoji (toggle), /emoji-set (manual set)
  */
 
-import type { HookAPI, HookContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { complete, type UserMessage } from "@mariozechner/pi-ai";
 
 interface SessionEmojiConfig {
@@ -65,7 +65,7 @@ Output ONLY the single emoji character, nothing else.`;
 const EMOJI_FROM_TEXT_PROMPT = `You are an emoji selector. Given a text description, choose ONE emoji that best represents it.
 Output ONLY the single emoji character, nothing else.`;
 
-export default function (pi: HookAPI) {
+export default function (pi: ExtensionAPI) {
   // Session state
   let sessionEmoji: string | null = null;
   let userMessageCount = 0;
@@ -177,7 +177,7 @@ export default function (pi: HookAPI) {
 /**
  * Get configuration with defaults
  */
-function getConfig(ctx: HookContext): Required<SessionEmojiConfig> {
+function getConfig(ctx: ExtensionContext): Required<SessionEmojiConfig> {
   const settings = (ctx as any).settingsManager?.getSettings() ?? {};
   return {
     ...DEFAULT_CONFIG,
@@ -188,7 +188,7 @@ function getConfig(ctx: HookContext): Required<SessionEmojiConfig> {
 /**
  * Get emojis from the past 24 hours across all sessions
  */
-function getRecentEmojis(ctx: HookContext): Set<string> {
+function getRecentEmojis(ctx: ExtensionContext): Set<string> {
   const now = Date.now();
   const oneDayAgo = now - 24 * 60 * 60 * 1000;
   const recent = new Set<string>();
@@ -208,17 +208,23 @@ function getRecentEmojis(ctx: HookContext): Set<string> {
 /**
  * Extract recent conversation context
  */
-function getConversationContext(ctx: HookContext, maxMessages: number): string {
+function getConversationContext(ctx: ExtensionContext, maxMessages: number): string {
   const branch = ctx.sessionManager.getBranch();
   const userMessages: string[] = [];
 
   for (let i = branch.length - 1; i >= 0 && userMessages.length < maxMessages; i--) {
     const entry = branch[i];
     if (entry.type === "message" && "role" in entry.message && entry.message.role === "user") {
-      const text = entry.message.content
-        .filter((c): c is { type: "text"; text: string } => c.type === "text")
-        .map((c) => c.text)
-        .join("\n");
+      const content = entry.message.content;
+      let text = "";
+      if (typeof content === "string") {
+        text = content;
+      } else if (Array.isArray(content)) {
+        text = content
+          .filter((c: any): c is { type: "text"; text: string } => c.type === "text")
+          .map((c) => c.text)
+          .join("\n");
+      }
       if (text.trim()) {
         userMessages.unshift(text);
       }
@@ -241,7 +247,7 @@ function getEmojiList(config: Required<SessionEmojiConfig>): string[] {
 /**
  * Select a random emoji from the configured set, avoiding recently used ones
  */
-function selectRandomEmoji(ctx: HookContext, config: Required<SessionEmojiConfig>): string {
+function selectRandomEmoji(ctx: ExtensionContext, config: Required<SessionEmojiConfig>): string {
   const emojis = getEmojiList(config);
   const recentEmojis = getRecentEmojis(ctx);
 
@@ -254,7 +260,7 @@ function selectRandomEmoji(ctx: HookContext, config: Required<SessionEmojiConfig
 /**
  * Select emoji using AI based on conversation context
  */
-async function selectEmojiWithAI(ctx: HookContext, config: Required<SessionEmojiConfig>): Promise<string> {
+async function selectEmojiWithAI(ctx: ExtensionContext, config: Required<SessionEmojiConfig>): Promise<string> {
   if (!ctx.model) {
     return selectRandomEmoji(ctx, config);
   }
@@ -303,7 +309,7 @@ Choose a unique, topical emoji for this session.`;
 /**
  * Select emoji using AI based on a text description
  */
-async function selectEmojiFromText(ctx: HookContext, description: string): Promise<string | null> {
+async function selectEmojiFromText(ctx: ExtensionContext, description: string): Promise<string | null> {
   if (!ctx.model) {
     return null;
   }
@@ -341,7 +347,7 @@ async function selectEmojiFromText(ctx: HookContext, description: string): Promi
 /**
  * Check if emoji is already assigned in current session
  */
-function checkExistingEmoji(ctx: HookContext): string | null {
+function checkExistingEmoji(ctx: ExtensionContext): string | null {
   const sessionId = ctx.sessionManager.getSessionId();
   const entries = ctx.sessionManager.getEntries();
 
@@ -361,9 +367,9 @@ function checkExistingEmoji(ctx: HookContext): string | null {
  * Assign emoji to current session and persist to history
  */
 async function assignEmoji(
-  ctx: HookContext,
+  ctx: ExtensionContext,
   config: Required<SessionEmojiConfig>,
-  pi: HookAPI,
+  pi: ExtensionAPI,
   getIsSelecting: () => boolean,
   setIsSelecting: (v: boolean) => void,
   getEmoji: () => string | null,
@@ -410,8 +416,8 @@ async function assignEmoji(
  * Manually set emoji and persist
  */
 function manualSetEmoji(
-  ctx: HookContext,
-  pi: HookAPI,
+  ctx: ExtensionContext,
+  pi: ExtensionAPI,
   emoji: string,
   setEmoji: (e: string) => void,
   setAssigned: (a: boolean) => void
@@ -436,7 +442,7 @@ function manualSetEmoji(
  * Register slash commands
  */
 function registerCommands(
-  pi: HookAPI,
+  pi: ExtensionAPI,
   getEmoji: () => string | null,
   setEmoji: (e: string) => void,
   getAssigned: () => boolean,
@@ -458,7 +464,7 @@ function registerCommands(
       setSessionOverride(newState);
 
       if (newState) {
-        ctx.ui.notify("🎨 Session emoji ON", "success");
+        ctx.ui.notify("🎨 Session emoji ON", "info");
         // If we have an emoji, show it; otherwise show pending
         const emoji = getEmoji();
         if (emoji) {
@@ -504,7 +510,7 @@ function registerCommands(
           const emoji = await ctx.ui.input("Enter emoji:");
           if (!emoji) return;
           manualSetEmoji(ctx, pi, emoji.trim(), setEmoji, setAssigned);
-          ctx.ui.notify(`Emoji set to ${emoji.trim()}`, "success");
+          ctx.ui.notify(`Emoji set to ${emoji.trim()}`, "info");
         } else if (choice === "💬 Describe what you want") {
           const description = await ctx.ui.input("Describe the emoji you want:");
           if (!description) return;
@@ -512,7 +518,7 @@ function registerCommands(
           const emoji = await selectEmojiFromText(ctx, description);
           if (emoji) {
             manualSetEmoji(ctx, pi, emoji, setEmoji, setAssigned);
-            ctx.ui.notify(`Emoji set to ${emoji} (from: "${description}")`, "success");
+            ctx.ui.notify(`Emoji set to ${emoji} (from: "${description}")`, "info");
           } else {
             ctx.ui.notify("Could not select emoji. Try entering one directly.", "error");
           }
@@ -529,7 +535,7 @@ function registerCommands(
           const emojis = EMOJI_SETS[setName] ?? EMOJI_SETS.default;
           const emoji = emojis[Math.floor(Math.random() * emojis.length)];
           manualSetEmoji(ctx, pi, emoji, setEmoji, setAssigned);
-          ctx.ui.notify(`Emoji set to ${emoji} (random from ${setName})`, "success");
+          ctx.ui.notify(`Emoji set to ${emoji} (random from ${setName})`, "info");
         }
         return;
       }
@@ -540,14 +546,14 @@ function registerCommands(
         // Direct emoji input
         const emoji = input.match(emojiRegex)?.[0] ?? input;
         manualSetEmoji(ctx, pi, emoji, setEmoji, setAssigned);
-        ctx.ui.notify(`Emoji set to ${emoji}`, "success");
+        ctx.ui.notify(`Emoji set to ${emoji}`, "info");
       } else {
         // Text description - use AI
         ctx.ui.notify("🔄 Selecting emoji...", "info");
         const emoji = await selectEmojiFromText(ctx, input);
         if (emoji) {
           manualSetEmoji(ctx, pi, emoji, setEmoji, setAssigned);
-          ctx.ui.notify(`Emoji set to ${emoji} (from: "${input}")`, "success");
+          ctx.ui.notify(`Emoji set to ${emoji} (from: "${input}")`, "info");
         } else {
           ctx.ui.notify("Could not select emoji from description. Try entering one directly.", "error");
         }
