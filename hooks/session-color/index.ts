@@ -342,7 +342,7 @@ function registerCommands(
    * /color - Toggle session color on/off
    */
   pi.registerCommand("color", {
-    description: "Toggle session color band on/off for this session",
+    description: "Toggle color band on/off (session)",
     handler: async (args, ctx) => {
       const config = getConfig(ctx);
       const sessionOverride = getSessionOverride();
@@ -374,7 +374,7 @@ function registerCommands(
    * /color-set - Manually set a color by index or pick from preview
    */
   pi.registerCommand("color-set", {
-    description: "Set session color manually",
+    description: "Set color by index (session)",
     handler: async (args, ctx) => {
       const config = getConfig(ctx);
       const input = args.trim();
@@ -426,7 +426,7 @@ function registerCommands(
    * /color-config - View and configure settings
    */
   pi.registerCommand("color-config", {
-    description: "View and configure session color settings",
+    description: "View settings and configure globals",
     handler: async (args, ctx) => {
       const config = getConfig(ctx);
       const sessionOverride = getSessionOverride();
@@ -484,9 +484,22 @@ function registerCommands(
           break;
         }
         case "⚙️  Change block character": {
-          ctx.ui.notify("To change block character, add to ~/.pi/agent/settings.json:", "info");
-          ctx.ui.notify(JSON.stringify({ sessionColor: { blockChar: "▌", blockCount: 1 } }, null, 2), "info");
-          ctx.ui.notify("\nSuggested characters: █ ▌ ▐ ▮ ■ ●", "info");
+          // Show character selection menu
+          const charOptions = BLOCK_CHARS.map(c => `${c.char} ${c.name}`);
+          charOptions.push("❌ Cancel");
+          
+          const choice = await ctx.ui.select("Select block character:", charOptions);
+          
+          if (!choice || choice === "❌ Cancel") {
+            ctx.ui.notify("Cancelled.", "info");
+            break;
+          }
+          
+          const selectedChar = BLOCK_CHARS.find(c => choice.startsWith(c.char));
+          if (selectedChar) {
+            ctx.ui.notify(`To use "${selectedChar.char}" globally, add to ~/.pi/agent/settings.json:`, "info");
+            ctx.ui.notify(JSON.stringify({ sessionColor: { blockChar: selectedChar.char } }, null, 2), "info");
+          }
           break;
         }
         case "🔄 Reset color sequence": {
@@ -506,7 +519,7 @@ function registerCommands(
    * /color-next - Skip to next color
    */
   pi.registerCommand("color-next", {
-    description: "Skip to the next color in the palette",
+    description: "Skip to next color (session)",
     handler: async (args, ctx) => {
       const config = getConfig(ctx);
       const currentIndex = getColorIndex() ?? -1;
@@ -521,7 +534,7 @@ function registerCommands(
    * /color-char - Change block character for this session
    */
   pi.registerCommand("color-char", {
-    description: "Change block character (no arg = cycle through options)",
+    description: "Change block character (session, cycles if no arg)",
     handler: async (args, ctx) => {
       const config = getConfig(ctx);
       const colorIndex = getColorIndex();

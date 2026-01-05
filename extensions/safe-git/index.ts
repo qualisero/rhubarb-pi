@@ -93,8 +93,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   // Register slash commands
-  pi.registerCommand({
-    name: "safegit",
+  pi.registerCommand("safegit", {
     description: "Toggle safe-git protection on/off for this session",
     handler: async (args, ctx) => {
       const { enabled } = getEffectiveConfig(ctx);
@@ -104,12 +103,11 @@ export default function (pi: ExtensionAPI) {
         newState ? "🔒 Safe-git protection ON" : "🔓 Safe-git protection OFF",
         "info"
       );
-      ctx.ui.print(`(Temporary for this session)`);
+      ctx.ui.notify(`(Temporary for this session)`, "info");
     },
   });
 
-  pi.registerCommand({
-    name: "safegit-level",
+  pi.registerCommand("safegit-level", {
     description: "Set prompt level: high, medium, or none",
     handler: async (args, ctx) => {
       const arg = args.trim().toLowerCase();
@@ -122,39 +120,40 @@ export default function (pi: ExtensionAPI) {
           none: "⚠️ No approval required (protection disabled)",
         };
         ctx.ui.notify(`Prompt level: ${arg}`, "info");
-        ctx.ui.print(desc[arg]);
-        ctx.ui.print(`(Temporary for this session)`);
+        ctx.ui.notify(desc[arg], "info");
+        ctx.ui.notify(`(Temporary for this session)`, "info");
         return;
       }
 
       // Interactive mode
       const { promptLevel } = getEffectiveConfig(ctx);
       const options = [
-        { label: `🔴 high - Only high-risk (force push, hard reset, etc.)`, value: "high" },
-        { label: `🟡 medium - Medium and high-risk (push, commit, etc.)`, value: "medium" },
-        { label: `⚠️ none - No prompts (disable protection)`, value: "none" },
-        { label: `❌ Cancel`, value: "cancel" },
+        `🔴 high - Only high-risk (force push, hard reset, etc.)`,
+        `🟡 medium - Medium and high-risk (push, commit, etc.)`,
+        `⚠️ none - No prompts (disable protection)`,
+        `❌ Cancel`,
       ];
 
-      ctx.ui.print(`Current level: ${promptLevel}\n`);
+      ctx.ui.notify(`Current level: ${promptLevel}\n`, "info");
       const choice = await ctx.ui.select("Set prompt level:", options);
 
-      if (choice === "cancel" || !choice) {
-        ctx.ui.print("Cancelled.");
+      if (!choice || choice.startsWith("❌")) {
+        ctx.ui.notify("Cancelled.", "info");
         return;
       }
 
-      sessionPromptLevelOverride = choice as PromptLevel;
+      // Extract level from choice
+      const level = choice.split(" ")[1] as PromptLevel;
+      sessionPromptLevelOverride = level;
       ctx.ui.notify(`Prompt level set to: ${choice}`, "info");
-      ctx.ui.print(`(Temporary for this session)`);
+      ctx.ui.notify(`(Temporary for this session)`, "info");
     },
   });
 
-  pi.registerCommand({
-    name: "safegit-status",
+  pi.registerCommand("safegit-status", {
     description: "Show safe-git status and settings",
     handler: async (args, ctx) => {
-      const settings = ctx.settingsManager?.getSettings() ?? {};
+      const settings = (ctx as any).settingsManager?.getSettings() ?? {};
       const globalConfig: Required<SafeGitConfig> = {
         ...DEFAULT_CONFIG,
         ...(settings.safeGit ?? {}),
@@ -180,7 +179,7 @@ export default function (pi: ExtensionAPI) {
         "───────────────────────",
       ];
 
-      ctx.ui.print(lines.join("\n"));
+      ctx.ui.notify(lines.join("\n"), "info");
     },
   });
 
