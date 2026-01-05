@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Verify TypeScript compilation
+        run: npm run typecheck
+        
+      - name: Verify hook structure
+        run: |
+          echo "Checking hook files..."
+          test -f hooks/session-emoji/index.ts || exit 1
+          test -f hooks/background-notify/index.ts || exit 1
+          test -f hooks/session-emoji/README.md || exit 1
+          test -f hooks/background-notify/README.md || exit 1
+          echo "✓ All hook files present"
+          
+      - name: Verify documentation
+        run: |
+          echo "Checking documentation..."
+          test -f README.md || exit 1
+          test -f CHANGELOG.md || exit 1
+          test -f LICENSE || exit 1
+          test -f docs/SLASH_COMMANDS.md || exit 1
+          test -f docs/BEEP_SOUNDS.md || exit 1
+          echo "✓ All documentation present"

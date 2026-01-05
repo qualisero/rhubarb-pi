@@ -1,0 +1,40 @@
+{
+  "name": "rhubarb-pi",
+  "version": "1.2.0",
+  "description": "A collection of small hooks and extensions for Pi agent",
+  "keywords": [
+    "pi",
+    "pi-coding-agent",
+    "hooks",
+    "extensions",
+    "productivity"
+  ],
+  "author": "Dave",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nickcox/rhubarb-pi"
+  },
+  "bugs": {
+    "url": "https://github.com/nickcox/rhubarb-pi/issues"
+  },
+  "homepage": "https://github.com/nickcox/rhubarb-pi#readme",
+  "scripts": {
+    "install:all": "npm run install:background-notify && npm run install:session-emoji",
+    "install:background-notify": "cd hooks/background-notify && npm run install:global",
+    "install:session-emoji": "cd hooks/session-emoji && npm run install:global",
+    "uninstall:all": "npm run uninstall:background-notify && npm run uninstall:session-emoji",
+    "uninstall:background-notify": "cd hooks/background-notify && npm run uninstall:global",
+    "uninstall:session-emoji": "cd hooks/session-emoji && npm run uninstall:global",
+    "test:background-notify": "cd hooks/background-notify && ./test.sh",
+    "test:session-emoji": "cd hooks/session-emoji && ./test.sh",
+    "typecheck": "tsc --noEmit",
+    "verify": "./verify.sh"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": ">=0.30.0"
+  }
+}

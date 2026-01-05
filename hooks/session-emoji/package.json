@@ -1,0 +1,23 @@
+{
+  "name": "@rhubarb-pi/session-emoji",
+  "version": "1.0.0",
+  "description": "Pi hook that displays a contextual emoji in pi's footer",
+  "main": "index.ts",
+  "scripts": {
+    "install:global": "mkdir -p ~/.pi/agent/hooks && cp index.ts ~/.pi/agent/hooks/session-emoji.ts && echo 'Installed to ~/.pi/agent/hooks/session-emoji.ts'",
+    "install:project": "mkdir -p .pi/hooks && cp index.ts .pi/hooks/session-emoji.ts && echo 'Installed to .pi/hooks/session-emoji.ts'",
+    "uninstall:global": "rm -f ~/.pi/agent/hooks/session-emoji.ts && echo 'Uninstalled from ~/.pi/agent/hooks/'",
+    "uninstall:project": "rm -f .pi/hooks/session-emoji.ts && echo 'Uninstalled from .pi/hooks/'"
+  },
+  "keywords": [
+    "pi",
+    "hook",
+    "emoji",
+    "session"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "typescript": "^5.9.3"
+  }
+}

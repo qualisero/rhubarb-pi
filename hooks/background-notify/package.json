@@ -1,0 +1,24 @@
+{
+  "name": "@rhubarb-pi/background-notify",
+  "version": "1.0.0",
+  "description": "Pi hook that notifies you when long-running tasks complete while your terminal is in the background",
+  "main": "index.ts",
+  "scripts": {
+    "install:global": "mkdir -p ~/.pi/agent/hooks && cp index.ts ~/.pi/agent/hooks/background-notify.ts && echo 'Installed to ~/.pi/agent/hooks/background-notify.ts'",
+    "install:project": "mkdir -p .pi/hooks && cp index.ts .pi/hooks/background-notify.ts && echo 'Installed to .pi/hooks/background-notify.ts'",
+    "uninstall:global": "rm -f ~/.pi/agent/hooks/background-notify.ts && echo 'Uninstalled from ~/.pi/agent/hooks/'",
+    "uninstall:project": "rm -f .pi/hooks/background-notify.ts && echo 'Uninstalled from .pi/hooks/'"
+  },
+  "keywords": [
+    "pi",
+    "hook",
+    "notification",
+    "background",
+    "terminal"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "typescript": "^5.9.3"
+  }
+}

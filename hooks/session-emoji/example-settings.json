@@ -1,0 +1,8 @@
+{
+  "sessionEmoji": {
+    "enabled": true,
+    "autoAssignMode": "ai",
+    "autoAssignThreshold": 3,
+    "contextMessages": 5
+  }
+}

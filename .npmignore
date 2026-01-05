@@ -1,0 +1,32 @@
+# Development files
+.git/
+.github/
+.scip/
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Test files
+test.sh
+verify.sh
+
+# Documentation (keep in npm package)
+# README.md
+# CHANGELOG.md
+# LICENSE
+
+# Editor configs
+.vscode/
+.idea/
+*.sublime-*
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+.tmp/

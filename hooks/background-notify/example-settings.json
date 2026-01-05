@@ -1,0 +1,8 @@
+{
+  "backgroundNotify": {
+    "enabledByDefault": false,
+    "thresholdMs": 5000,
+    "beep": true,
+    "bringToFront": true
+  }
+}
