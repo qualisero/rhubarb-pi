@@ -9,7 +9,7 @@
  * {
  *   "sessionColor": {
  *     "enabledByDefault": true,
- *     "blockChar": "█",
+ *     "blockChar": "▁",
  *     "blockCount": "full"
  *   }
  * }
@@ -38,7 +38,7 @@ interface ColorState {
 
 const DEFAULT_CONFIG: Required<SessionColorConfig> = {
   enabledByDefault: true,
-  blockChar: "█",
+  blockChar: "▁",
   blockCount: "full",
 };
 

@@ -31,7 +31,7 @@ Add to `~/.pi/agent/settings.json`:
 {
   "sessionColor": {
     "enabledByDefault": true,
-    "blockChar": "█",
+    "blockChar": "▁",
     "blockCount": "full"
   }
 }
@@ -42,19 +42,22 @@ Add to `~/.pi/agent/settings.json`:
 | Option | Default | Description |
 |--------|---------|-------------|
 | `enabledByDefault` | `true` | Enable/disable for new sessions |
-| `blockChar` | `"█"` | Character to display |
+| `blockChar` | `"▁"` | Character to display |
 | `blockCount` | `"full"` | `"full"` for terminal width, or a number |
 
 ### Block Character Suggestions
 
-| Char | Name |
-|------|------|
-| █ | Full block (default) |
-| ▌ | Left half block |
-| ▐ | Right half block |
-| ▮ | Black vertical rectangle |
-| ■ | Black square |
-| ● | Black circle |
+| Char | Name | Look |
+|------|------|------|
+| ▁ | Lower one eighth block (default) | Thin underline |
+| ▂ | Lower one quarter block | Slightly thicker |
+| ▄ | Lower half block | Half height |
+| █ | Full block | Solid bar |
+| ▔ | Upper one eighth block | Thin overline |
+| ▀ | Upper half block | Top half |
+| ─ | Box light horizontal | Thin line |
+| ━ | Box heavy horizontal | Thick line |
+| ═ | Box double horizontal | Double line |
 
 ## Commands
 
