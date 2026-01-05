@@ -138,10 +138,27 @@ function writeColorState(state: ColorState): void {
   }
 }
 
+/**
+ * Block characters for cycling with /color-char
+ */
+const BLOCK_CHARS = [
+  { char: "▁", name: "Lower one eighth block", look: "Thin underline" },
+  { char: "▂", name: "Lower one quarter block", look: "Slightly thicker" },
+  { char: "▄", name: "Lower half block", look: "Half height" },
+  { char: "█", name: "Full block", look: "Solid bar" },
+  { char: "▔", name: "Upper one eighth block", look: "Thin overline" },
+  { char: "▀", name: "Upper half block", look: "Top half" },
+  { char: "─", name: "Box light horizontal", look: "Thin line" },
+  { char: "━", name: "Box heavy horizontal", look: "Thick line" },
+  { char: "═", name: "Box double horizontal", look: "Double line" },
+];
+
 export default function (pi: ExtensionAPI) {
   let sessionColorIndex: number | null = null;
   let colorAssigned = false;
   let sessionEnabledOverride: boolean | null = null;
+  let sessionBlockCharOverride: string | null = null;
+  let sessionBlockCharIndex: number = 0;
   let currentCtx: ExtensionContext | null = null;
   let resizeHandler: (() => void) | null = null;
 
@@ -152,7 +169,11 @@ export default function (pi: ExtensionAPI) {
     () => colorAssigned,
     (assigned) => { colorAssigned = assigned; },
     () => sessionEnabledOverride,
-    (value) => { sessionEnabledOverride = value; }
+    (value) => { sessionEnabledOverride = value; },
+    () => sessionBlockCharOverride,
+    (value) => { sessionBlockCharOverride = value; },
+    () => sessionBlockCharIndex,
+    (idx) => { sessionBlockCharIndex = idx; }
   );
 
   /**
@@ -186,6 +207,8 @@ export default function (pi: ExtensionAPI) {
     sessionColorIndex = null;
     colorAssigned = false;
     sessionEnabledOverride = null;
+    sessionBlockCharOverride = null;
+    sessionBlockCharIndex = 0;
     currentCtx = ctx;
 
     const config = getConfig(ctx);
@@ -231,6 +254,8 @@ export default function (pi: ExtensionAPI) {
       sessionColorIndex = null;
       colorAssigned = false;
       sessionEnabledOverride = null;
+      sessionBlockCharOverride = null;
+      sessionBlockCharIndex = 0;
       currentCtx = ctx;
 
       const config = getConfig(ctx);
@@ -269,12 +294,13 @@ function getConfig(ctx: ExtensionContext): Required<SessionColorConfig> {
   };
 }
 
-function updateStatus(ctx: ExtensionContext, config: Required<SessionColorConfig>, colorIndex: number) {
+function updateStatus(ctx: ExtensionContext, config: Required<SessionColorConfig>, colorIndex: number, blockCharOverride?: string) {
   const color = COLOR_PALETTE[colorIndex];
   const count = config.blockCount === "full" 
     ? (process.stdout.columns || 80) 
     : config.blockCount;
-  const block = config.blockChar.repeat(count);
+  const char = blockCharOverride ?? config.blockChar;
+  const block = char.repeat(count);
   const coloredBlock = `${colorCode(color)}${block}${RESET}`;
   ctx.ui.setStatus("0-color-band", coloredBlock);
 }
@@ -284,7 +310,8 @@ function manualSetColor(
   config: Required<SessionColorConfig>,
   colorIndex: number,
   setColorIndex: (idx: number) => void,
-  setAssigned: () => void
+  setAssigned: () => void,
+  blockCharOverride?: string
 ) {
   setColorIndex(colorIndex);
   setAssigned();
@@ -295,7 +322,7 @@ function manualSetColor(
     timestamp: Date.now(),
   });
 
-  updateStatus(ctx, config, colorIndex);
+  updateStatus(ctx, config, colorIndex, blockCharOverride);
 }
 
 function registerCommands(
@@ -305,7 +332,11 @@ function registerCommands(
   getAssigned: () => boolean,
   setAssigned: (assigned: boolean) => void,
   getSessionOverride: () => boolean | null,
-  setSessionOverride: (value: boolean | null) => void
+  setSessionOverride: (value: boolean | null) => void,
+  getBlockCharOverride: () => string | null,
+  setBlockCharOverride: (value: string | null) => void,
+  getBlockCharIndex: () => number,
+  setBlockCharIndex: (idx: number) => void
 ) {
   /**
    * /color - Toggle session color on/off
@@ -324,13 +355,13 @@ function registerCommands(
         ctx.ui.notify("🎨 Session color ON", "info");
         const colorIndex = getColorIndex();
         if (colorIndex !== null) {
-          updateStatus(ctx, config, colorIndex);
+          updateStatus(ctx, config, colorIndex, getBlockCharOverride() ?? undefined);
         } else {
           // Assign next color
           const state = readColorState();
           const lastIndex = state?.lastColorIndex ?? -1;
           const nextIndex = (lastIndex + 1) % COLOR_PALETTE.length;
-          manualSetColor(ctx, config, nextIndex, setColorIndex, () => setAssigned(true));
+          manualSetColor(ctx, config, nextIndex, setColorIndex, () => setAssigned(true), getBlockCharOverride() ?? undefined);
         }
       } else {
         ctx.ui.notify("⬜ Session color OFF", "warning");
@@ -354,7 +385,7 @@ function registerCommands(
           ctx.ui.notify(`Invalid index. Use 0-${COLOR_PALETTE.length - 1}`, "error");
           return;
         }
-        manualSetColor(ctx, config, index, setColorIndex, () => setAssigned(true));
+        manualSetColor(ctx, config, index, setColorIndex, () => setAssigned(true), getBlockCharOverride() ?? undefined);
         const color = COLOR_PALETTE[index];
         ctx.ui.notify(`Color set to index ${index} (ANSI ${color})`, "info");
         return;
@@ -386,7 +417,7 @@ function registerCommands(
         return;
       }
 
-      manualSetColor(ctx, config, index, setColorIndex, () => setAssigned(true));
+      manualSetColor(ctx, config, index, setColorIndex, () => setAssigned(true), getBlockCharOverride() ?? undefined);
       ctx.ui.notify(`Color set to index ${index}`, "info");
     },
   });
@@ -481,8 +512,43 @@ function registerCommands(
       const currentIndex = getColorIndex() ?? -1;
       const nextIndex = (currentIndex + 1) % COLOR_PALETTE.length;
 
-      manualSetColor(ctx, config, nextIndex, setColorIndex, () => setAssigned(true));
+      manualSetColor(ctx, config, nextIndex, setColorIndex, () => setAssigned(true), getBlockCharOverride() ?? undefined);
       ctx.ui.notify(`Skipped to color ${nextIndex}`, "info");
+    },
+  });
+
+  /**
+   * /color-char - Change block character for this session
+   */
+  pi.registerCommand("color-char", {
+    description: "Change block character (no arg = cycle through options)",
+    handler: async (args, ctx) => {
+      const config = getConfig(ctx);
+      const colorIndex = getColorIndex();
+      const input = args.trim();
+
+      if (colorIndex === null) {
+        ctx.ui.notify("No color assigned yet", "error");
+        return;
+      }
+
+      if (input) {
+        // Direct character input
+        setBlockCharOverride(input);
+        updateStatus(ctx, config, colorIndex, input);
+        ctx.ui.notify(`Block character set to "${input}"`, "info");
+        return;
+      }
+
+      // Cycle through BLOCK_CHARS
+      const currentIdx = getBlockCharIndex();
+      const nextIdx = (currentIdx + 1) % BLOCK_CHARS.length;
+      setBlockCharIndex(nextIdx);
+
+      const nextChar = BLOCK_CHARS[nextIdx];
+      setBlockCharOverride(nextChar.char);
+      updateStatus(ctx, config, colorIndex, nextChar.char);
+      ctx.ui.notify(`${nextChar.char} ${nextChar.name} (${nextChar.look})`, "info");
     },
   });
 }
