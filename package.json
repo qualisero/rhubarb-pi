@@ -1,6 +1,6 @@
 {
   "name": "rhubarb-pi",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "A collection of small hooks and extensions for Pi agent",
   "keywords": [
     "pi",
@@ -13,19 +13,21 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nickcox/rhubarb-pi"
+    "url": "https://github.com/qualisero/rhubarb-pi"
   },
   "bugs": {
-    "url": "https://github.com/nickcox/rhubarb-pi/issues"
+    "url": "https://github.com/qualisero/rhubarb-pi/issues"
   },
-  "homepage": "https://github.com/nickcox/rhubarb-pi#readme",
+  "homepage": "https://github.com/qualisero/rhubarb-pi#readme",
   "scripts": {
-    "install:all": "npm run install:background-notify && npm run install:session-emoji",
+    "install:all": "npm run install:background-notify && npm run install:session-emoji && npm run install:session-color",
     "install:background-notify": "cd hooks/background-notify && npm run install:global",
     "install:session-emoji": "cd hooks/session-emoji && npm run install:global",
-    "uninstall:all": "npm run uninstall:background-notify && npm run uninstall:session-emoji",
+    "install:session-color": "cd hooks/session-color && npm run install:global",
+    "uninstall:all": "npm run uninstall:background-notify && npm run uninstall:session-emoji && npm run uninstall:session-color",
     "uninstall:background-notify": "cd hooks/background-notify && npm run uninstall:global",
     "uninstall:session-emoji": "cd hooks/session-emoji && npm run uninstall:global",
+    "uninstall:session-color": "cd hooks/session-color && npm run uninstall:global",
     "test:background-notify": "cd hooks/background-notify && ./test.sh",
     "test:session-emoji": "cd hooks/session-emoji && ./test.sh",
     "typecheck": "tsc --noEmit",

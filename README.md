@@ -10,6 +10,7 @@ A collection of small hooks and extensions for the [pi coding agent](https://git
 |------|-------------|---------|
 | [🔔 background-notify](#-background-notify) | Get notified when long tasks complete | `npm run install:background-notify` |
 | [🎨 session-emoji](#-session-emoji) | AI-powered emoji in your footer | `npm run install:session-emoji` |
+| [🌈 session-color](#-session-color) | Colored band to distinguish sessions | `npm run install:session-color` |
 
 ---
 
@@ -61,8 +62,8 @@ Display an intelligent emoji in pi's footer that represents your conversation.
 
 - 🤖 AI-powered contextual emoji selection
 - 🔄 24-hour uniqueness across sessions
+- 🎯 Manual selection with `/emoji-set`
 - Multiple emoji sets (default, animals, tech, fun)
-- Custom emoji support
 
 **Install:**
 ```bash
@@ -78,7 +79,7 @@ npm run uninstall:session-emoji
 ```json
 {
   "sessionEmoji": {
-    "enabled": true,
+    "enabledByDefault": true,
     "autoAssignMode": "ai",
     "autoAssignThreshold": 3
   }
@@ -86,11 +87,52 @@ npm run uninstall:session-emoji
 ```
 
 **Commands:**
-- `/emoji` - Interactive configuration
-- `/emoji-test` - Preview all emoji sets
+- `/emoji` - Toggle on/off for this session
+- `/emoji-set` - Set emoji (direct or from description)
+- `/emoji-config` - View settings and configure
 - `/emoji-history` - View 24h usage history
 
 [📖 Full Documentation](hooks/session-emoji/README.md)
+
+---
+
+### 🌈 session-color
+
+Display a colored band in pi's footer to visually distinguish sessions.
+
+- 🎨 40 distinct colors maximizing visual difference
+- 🔄 Sequential cycling through palette
+- 👁️ Each color distinct from recent sessions
+- ⚙️ Customizable block character
+
+**Install:**
+```bash
+npm run install:session-color
+```
+
+**Uninstall:**
+```bash
+npm run uninstall:session-color
+```
+
+**Configuration** (`~/.pi/agent/settings.json`):
+```json
+{
+  "sessionColor": {
+    "enabledByDefault": true,
+    "blockChar": "█",
+    "blockCount": "full"
+  }
+}
+```
+
+**Commands:**
+- `/color` - Toggle on/off for this session
+- `/color-set` - Set specific color by index
+- `/color-next` - Skip to next color
+- `/color-config` - View settings and palette
+
+[📖 Full Documentation](hooks/session-color/README.md)
 
 ---
 
@@ -106,8 +148,8 @@ npm run install:all
 
 ```bash
 npm run install:background-notify
-# or
 npm run install:session-emoji
+npm run install:session-color
 ```
 
 ### Restart required
@@ -125,6 +167,7 @@ npm run uninstall:all
 # Remove individual hooks
 npm run uninstall:background-notify
 npm run uninstall:session-emoji
+npm run uninstall:session-color
 ```
 
 ---
