@@ -6,13 +6,25 @@ A collection of small hooks and extensions for the [pi coding agent](https://git
 
 ## Hooks
 
+Hooks add features via lifecycle events (session start, agent end, etc).
+
 | Hook | Description | Install |
 |------|-------------|---------|
 | [🔔 background-notify](#-background-notify) | Get notified when long tasks complete | `npm run install:background-notify` |
 | [🎨 session-emoji](#-session-emoji) | AI-powered emoji in your footer | `npm run install:session-emoji` |
 | [🌈 session-color](#-session-color) | Colored band to distinguish sessions | `npm run install:session-color` |
 
+## Extensions
+
+Extensions intercept and modify tool behavior (like bash commands).
+
+| Extension | Description | Install |
+|-----------|-------------|---------|
+| [🔒 safe-git](#-safe-git) | Require approval for git operations | `npm run install:safe-git` |
+
 ---
+
+## Hooks
 
 ### 🔔 background-notify
 
@@ -136,38 +148,97 @@ npm run uninstall:session-color
 
 ---
 
+## Extensions
+
+### 🔒 safe-git
+
+Require explicit user approval before dangerous git operations.
+
+- 🔴 High risk: force push, hard reset, clean, delete branch
+- 🟡 Medium risk: push, commit, rebase, merge, tag
+- Blocks entirely in non-interactive mode (fail-safe)
+
+**Install:**
+```bash
+npm run install:safe-git
+```
+
+**Uninstall:**
+```bash
+npm run uninstall:safe-git
+```
+
+**Behavior:**
+```
+🟡 Git push requires approval
+
+The agent wants to run:
+
+  git push origin main
+
+Allow this operation?
+[Yes] [No]
+```
+
+[📖 Full Documentation](extensions/safe-git/README.md)
+
+---
+
 ## Quick Start
 
-### Install all hooks
+### Install everything
 
 ```bash
 npm run install:all
 ```
 
-### Install a single hook
+### Install all hooks
 
 ```bash
+npm run install:all-hooks
+```
+
+### Install all extensions
+
+```bash
+npm run install:all-extensions
+```
+
+### Install individually
+
+```bash
+# Hooks
 npm run install:background-notify
 npm run install:session-emoji
 npm run install:session-color
+
+# Extensions
+npm run install:safe-git
 ```
 
 ### Restart required
 
-After installing any hook, **restart pi** for it to be loaded.
+After installing any hook or extension, **restart pi** for it to be loaded.
 
 ---
 
 ## Uninstall
 
 ```bash
-# Remove all hooks
+# Remove everything
 npm run uninstall:all
 
-# Remove individual hooks
+# Remove all hooks
+npm run uninstall:all-hooks
+
+# Remove all extensions
+npm run uninstall:all-extensions
+
+# Remove individually
 npm run uninstall:background-notify
 npm run uninstall:session-emoji
 npm run uninstall:session-color
+npm run uninstall:safe-git
 ```
 
 ---
@@ -182,12 +253,17 @@ npm run uninstall:session-color
 
 ## Contributing
 
-To add a new hook:
+**To add a new hook:**
 
 1. Create `hooks/<hook-name>/` with `index.ts`, `README.md`, `package.json`
 2. Add install/uninstall scripts to root `package.json`
 3. Update this README
-4. Submit a PR
+
+**To add a new extension:**
+
+1. Create `extensions/<extension-name>/` with `index.ts`, `README.md`, `package.json`
+2. Add install/uninstall scripts to root `package.json`
+3. Update this README
 
 ---
 
