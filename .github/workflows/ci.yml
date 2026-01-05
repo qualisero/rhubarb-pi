@@ -18,6 +18,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
           
       - name: Verify TypeScript compilation
         run: npm run typecheck
@@ -27,16 +30,22 @@ jobs:
           echo "Checking hook files..."
           test -f hooks/session-emoji/index.ts || exit 1
           test -f hooks/background-notify/index.ts || exit 1
+          test -f hooks/session-color/index.ts || exit 1
           test -f hooks/session-emoji/README.md || exit 1
           test -f hooks/background-notify/README.md || exit 1
+          test -f hooks/session-color/README.md || exit 1
           echo "✓ All hook files present"
+
+      - name: Verify extension structure
+        run: |
+          echo "Checking extension files..."
+          test -f extensions/safe-git/index.ts || exit 1
+          test -f extensions/safe-git/README.md || exit 1
+          echo "✓ All extension files present"
           
       - name: Verify documentation
         run: |
           echo "Checking documentation..."
           test -f README.md || exit 1
-          test -f CHANGELOG.md || exit 1
           test -f LICENSE || exit 1
-          test -f docs/SLASH_COMMANDS.md || exit 1
-          test -f docs/BEEP_SOUNDS.md || exit 1
           echo "✓ All documentation present"

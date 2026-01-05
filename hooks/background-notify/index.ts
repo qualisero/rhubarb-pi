@@ -18,7 +18,7 @@
  * - Per-session control: Use /notify (toggle), /notify-enable, /notify-disable
  */
 
-import type { HookAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import * as child_process from "node:child_process";
 import { promisify } from "node:util";
 import * as fs from "node:fs/promises";
@@ -31,6 +31,7 @@ interface BackgroundNotifyConfig {
   enabledByDefault?: boolean;
   thresholdMs?: number;
   beep?: boolean;
+  beepSound?: string;
   bringToFront?: boolean;
 }
 
@@ -38,16 +39,18 @@ const DEFAULT_CONFIG: Required<BackgroundNotifyConfig> = {
   enabledByDefault: false,
   thresholdMs: 2000,
   beep: true,
+  beepSound: "Tink",
   bringToFront: true,
 };
 
-export default function (pi: HookAPI) {
+export default function (pi: ExtensionAPI) {
   let startTime: number | undefined;
   let terminalPid: number | undefined;
   let terminalApp: string | undefined;
   let terminalTTY: string | undefined;
   let sessionEnabledOverride: boolean | null = null;
   let sessionBeepOverride: boolean | null = null;
+  let sessionBeepSoundOverride: string | null = null;
   let sessionBringToFrontOverride: boolean | null = null;
 
   // Register slash commands
@@ -64,6 +67,10 @@ export default function (pi: HookAPI) {
     (value) => {
       sessionBeepOverride = value;
     },
+    () => sessionBeepSoundOverride,
+    (value) => {
+      sessionBeepSoundOverride = value;
+    },
     () => sessionBringToFrontOverride,
     (value) => {
       sessionBringToFrontOverride = value;
@@ -74,6 +81,7 @@ export default function (pi: HookAPI) {
   pi.on("session_start", async () => {
     sessionEnabledOverride = null;
     sessionBeepOverride = null;
+    sessionBeepSoundOverride = null;
     sessionBringToFrontOverride = null;
     try {
       terminalPid = process.ppid;
@@ -145,12 +153,13 @@ export default function (pi: HookAPI) {
 
     // Use session overrides if set, otherwise use config
     const shouldBeep = sessionBeepOverride !== null ? sessionBeepOverride : config.beep;
+    const beepSound = sessionBeepSoundOverride !== null ? sessionBeepSoundOverride : config.beepSound;
     const shouldBringToFront = sessionBringToFrontOverride !== null ? sessionBringToFrontOverride : config.bringToFront;
 
     const tasks: Promise<void>[] = [];
     
     if (shouldBeep) {
-      tasks.push(playBeep().catch(() => {}));
+      tasks.push(playBeep(beepSound).catch(() => {}));
     }
 
     if (shouldBringToFront) {
@@ -164,7 +173,7 @@ export default function (pi: HookAPI) {
       if (shouldBeep) actions.push("beeped");
       if (shouldBringToFront) actions.push("brought to front");
       const actionText = actions.length > 0 ? ` (${actions.join(", ")})` : "";
-      ctx.ui.notify(`Task completed in ${durationSec}s${actionText}`, "success");
+      ctx.ui.notify(`Task completed in ${durationSec}s${actionText}`, "info");
     }
   });
 }
@@ -172,9 +181,9 @@ export default function (pi: HookAPI) {
 /**
  * Play an audible beep (non-blocking)
  */
-async function playBeep(): Promise<void> {
+async function playBeep(soundName: string = "Tink"): Promise<void> {
   if (process.platform === "darwin") {
-    child_process.exec("afplay /System/Library/Sounds/Tink.aiff");
+    child_process.exec(`afplay /System/Library/Sounds/${soundName}.aiff`);
   } else if (process.platform === "linux") {
     try {
       child_process.exec("paplay /usr/share/sounds/freedesktop/stereo/bell.oga");
@@ -315,7 +324,7 @@ end tell`;
  * Register slash commands for configuration
  */
 function registerCommands(
-  pi: HookAPI,
+  pi: ExtensionAPI,
   getTerminalApp: () => string | undefined,
   getTerminalPid: () => number | undefined,
   getTerminalTTY: () => string | undefined,
@@ -323,6 +332,8 @@ function registerCommands(
   setSessionOverride: (value: boolean | null) => void,
   getSessionBeepOverride: () => boolean | null,
   setSessionBeepOverride: (value: boolean | null) => void,
+  getSessionBeepSoundOverride: () => string | null,
+  setSessionBeepSoundOverride: (value: string | null) => void,
   getSessionBringToFrontOverride: () => boolean | null,
   setSessionBringToFrontOverride: (value: boolean | null) => void
 ) {
@@ -348,8 +359,9 @@ function registerCommands(
       setSessionBringToFrontOverride(newState);
       
       if (newState) {
-        ctx.ui.notify("🔔 Background notifications ON (beep + focus)", "success");
-        await playBeep().catch(() => {});
+        ctx.ui.notify("🔔 Background notifications ON (beep + focus)", "info");
+        const sound = getSessionBeepSoundOverride() ?? config.beepSound;
+        await playBeep(sound).catch(() => {});
       } else {
         ctx.ui.notify("🔕 Background notifications OFF", "warning");
       }
@@ -380,8 +392,9 @@ function registerCommands(
       }
       
       if (newState) {
-        ctx.ui.notify("🔊 Beep ON", "success");
-        await playBeep().catch(() => {});
+        ctx.ui.notify("🔊 Beep ON", "info");
+        const sound = getSessionBeepSoundOverride() ?? config.beepSound;
+        await playBeep(sound).catch(() => {});
       } else {
         ctx.ui.notify("🔇 Beep OFF", "warning");
       }
@@ -412,7 +425,7 @@ function registerCommands(
       }
       
       if (newState) {
-        ctx.ui.notify("🪟 Focus ON (bring terminal to front)", "success");
+        ctx.ui.notify("🪟 Focus ON (bring terminal to front)", "info");
       } else {
         ctx.ui.notify("⬜ Focus OFF", "warning");
       }
@@ -436,6 +449,7 @@ function registerCommands(
       
       const beepEnabled = sessionBeepOverride !== null ? sessionBeepOverride : config.beep;
       const focusEnabled = sessionBringToFrontOverride !== null ? sessionBringToFrontOverride : config.bringToFront;
+      const beepSound = getSessionBeepSoundOverride() ?? config.beepSound;
 
       ctx.ui.notify("🧪 Testing notification in 3 seconds...", "info");
       ctx.ui.notify("💡 Tip: Switch to another app to see it in action!", "info");
@@ -446,7 +460,7 @@ function registerCommands(
       const triggered: string[] = [];
 
       if (beepEnabled) {
-        tasks.push(playBeep().catch(() => {}));
+        tasks.push(playBeep(beepSound).catch(() => {}));
         triggered.push("beep");
       }
 
@@ -458,7 +472,7 @@ function registerCommands(
       await Promise.all(tasks);
 
       if (triggered.length > 0) {
-        ctx.ui.notify(`✅ Test complete! Triggered: ${triggered.join(" + ")}`, "success");
+        ctx.ui.notify(`✅ Test complete! Triggered: ${triggered.join(" + ")}`, "info");
       } else {
         ctx.ui.notify("⚠️ Test complete, but both beep and focus are disabled", "warning");
       }
@@ -495,27 +509,28 @@ function registerCommands(
         return;
       }
 
+      // Get current sound (session override or config)
+      const sessionBeepSound = getSessionBeepSoundOverride();
+      const currentSound = sessionBeepSound !== null ? sessionBeepSound : config.beepSound;
+
       // Build available beep sounds based on platform
+      const beepSounds = [
+        "Tink", "Basso", "Blow", "Bottle", "Frog", "Funk", 
+        "Glass", "Hero", "Morse", "Ping", "Pop", "Purr", 
+        "Sosumi", "Submarine"
+      ];
+      
       const beepOptions: string[] = [];
       if (process.platform === "darwin") {
-        beepOptions.push(
-          "🔊 Test current beep",
-          "🎵 Tink (default)",
-          "🎵 Basso",
-          "🎵 Blow", 
-          "🎵 Bottle",
-          "🎵 Frog",
-          "🎵 Funk",
-          "🎵 Glass",
-          "🎵 Hero",
-          "🎵 Morse",
-          "🎵 Ping",
-          "🎵 Pop",
-          "🎵 Purr",
-          "🎵 Sosumi",
-          "🎵 Submarine",
-          "🎵 Tink"
-        );
+        beepOptions.push("🔊 Test current beep");
+        for (const sound of beepSounds) {
+          const isDefault = sound === "Tink";
+          const isCurrent = sound === currentSound;
+          let label = `🎵 ${sound}`;
+          if (isDefault) label += " (default)";
+          if (isCurrent) label += " ✓";
+          beepOptions.push(label);
+        }
       }
 
       const action = await ctx.ui.select(
@@ -537,17 +552,17 @@ function registerCommands(
 
       // Handle beep sound selection
       if (action === "🔊 Test current beep") {
-        ctx.ui.notify("Playing beep...", "info");
-        await playBeep().catch(() => {});
+        ctx.ui.notify(`Playing ${currentSound}...`, "info");
+        await playBeep(currentSound).catch(() => {});
         return;
       }
 
       if (action.startsWith("🎵 ")) {
-        const soundName = action.replace("🎵 ", "").replace(" (default)", "");
+        const soundName = action.replace("🎵 ", "").replace(" (default)", "").replace(" ✓", "");
         ctx.ui.notify(`Playing ${soundName}...`, "info");
         await playSound(soundName).catch(() => {});
-        ctx.ui.notify(`To use "${soundName}" as your beep, add to ~/.pi/agent/settings.json:`, "info");
-        ctx.ui.notify(JSON.stringify({ backgroundNotify: { beepSound: soundName } }, null, 2), "info");
+        setSessionBeepSoundOverride(soundName);
+        ctx.ui.notify(`Sound set to "${soundName}" for this session`, "info");
         return;
       }
 
