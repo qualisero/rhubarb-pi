@@ -1,5 +1,5 @@
 /**
- * Background Task Completion Hook
+ * Background Task Completion Extension
  * 
  * Detects long-running tasks and brings the terminal to the front if it's backgrounded.
  * Notifications are DISABLED by default. Use /notify to enable per session.

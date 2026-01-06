@@ -1,17 +1,17 @@
 {
   "name": "@rhubarb-pi/session-color",
   "version": "1.0.0",
-  "description": "Pi hook that displays a colored band in the footer to distinguish sessions",
+  "description": "Pi extension that displays a colored band in the footer to distinguish sessions",
   "main": "index.ts",
   "scripts": {
-    "install:global": "mkdir -p ~/.pi/agent/hooks && cp index.ts ~/.pi/agent/hooks/session-color.ts && echo 'Installed to ~/.pi/agent/hooks/session-color.ts'",
-    "install:project": "mkdir -p .pi/hooks && cp index.ts .pi/hooks/session-color.ts && echo 'Installed to .pi/hooks/session-color.ts'",
-    "uninstall:global": "rm -f ~/.pi/agent/hooks/session-color.ts && echo 'Uninstalled from ~/.pi/agent/hooks/'",
-    "uninstall:project": "rm -f .pi/hooks/session-color.ts && echo 'Uninstalled from .pi/hooks/'"
+    "install:global": "mkdir -p ~/.pi/agent/extensions && cp index.ts ~/.pi/agent/extensions/session-color.ts && echo 'Installed to ~/.pi/agent/extensions/session-color.ts'",
+    "install:project": "mkdir -p .pi/extensions && cp index.ts .pi/extensions/session-color.ts && echo 'Installed to .pi/extensions/session-color.ts'",
+    "uninstall:global": "rm -f ~/.pi/agent/extensions/session-color.ts && echo 'Uninstalled from ~/.pi/agent/extensions/'",
+    "uninstall:project": "rm -f .pi/extensions/session-color.ts && echo 'Uninstalled from .pi/extensions/'"
   },
   "keywords": [
     "pi",
-    "hook",
+    "extension",
     "color",
     "session"
   ],

@@ -1,5 +1,73 @@
 # Changelog
 
+## v2.0.0 - Extensions Migration (Breaking Changes)
+
+### 🔥 Breaking Changes
+
+**Unified extensions architecture** - All hooks are now extensions, aligning with pi v0.36.0+ architecture.
+
+**Migration Required:**
+1. Uninstall old hooks:
+   ```bash
+   rm ~/.pi/agent/hooks/background-notify.ts
+   rm ~/.pi/agent/hooks/session-emoji.ts
+   rm ~/.pi/agent/hooks/session-color.ts
+   ```
+2. Install new extensions:
+   ```bash
+   npm run install:all
+   ```
+3. Restart pi
+
+### Changes
+
+#### Directory Structure
+- **Before:** Separate `hooks/` and `extensions/` directories
+- **After:** All components in unified structure, installed to `~/.pi/agent/extensions/`
+
+#### Installation Paths
+- `~/.pi/agent/hooks/` → `~/.pi/agent/extensions/`
+- `.pi/hooks/` → `.pi/extensions/`
+
+#### Terminology
+- All components now called "extensions" (no more "hooks")
+- Updated all documentation and package descriptions
+- Maintained backward compatibility for functionality
+
+### What Changed
+
+#### Package Updates
+- **Root package.json**: Simplified scripts, bumped version to 2.0.0
+- **Individual packages**: Updated install paths from `hooks/` to `extensions/`
+- **Keywords**: Changed from "hook" to "extension"
+- **Descriptions**: Updated terminology throughout
+
+#### Documentation
+- **README.md**: Unified terminology, added migration guide
+- **All docs**: Updated references from "hooks" to "extensions"
+- **TypeScript comments**: Updated file headers
+
+### What Stayed the Same
+
+✅ **No code changes** - All TypeScript code unchanged  
+✅ **Configuration** - Settings remain the same  
+✅ **Commands** - All slash commands work identically  
+✅ **Features** - Zero functionality changes  
+
+### Why This Update?
+
+Pi v0.36.0 unified hooks and custom tools into a single "extensions" concept. This update:
+- Aligns with pi's latest architecture
+- Simplifies mental model (one concept instead of two)
+- Future-proofs for upcoming pi features
+- Maintains full backward compatibility
+
+### Requirements
+
+- pi v0.36.0+ (was v0.30.0+)
+
+---
+
 ## v1.2.0 - Slash Commands for Interactive Configuration
 
 ### New Feature: Slash Commands

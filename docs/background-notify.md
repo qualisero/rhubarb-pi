@@ -145,6 +145,6 @@ Global Defaults:
 - Check macOS accessibility permissions for terminal app
 - Verify terminal is in supported list
 
-### Hook not loading
-- Verify hook is at `~/.pi/agent/hooks/background-notify.ts`
+### Extension not loading
+- Verify extension is at `~/.pi/agent/extensions/background-notify.ts`
 - Restart pi completely

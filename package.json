@@ -1,11 +1,10 @@
 {
   "name": "rhubarb-pi",
-  "version": "1.4.0",
-  "description": "A collection of small hooks and extensions for Pi agent",
+  "version": "2.0.0",
+  "description": "A collection of extensions for Pi coding agent",
   "keywords": [
     "pi",
     "pi-coding-agent",
-    "hooks",
     "extensions",
     "productivity"
   ],
@@ -20,16 +19,14 @@
   },
   "homepage": "https://github.com/qualisero/rhubarb-pi#readme",
   "scripts": {
-    "install:all": "npm run install:all-hooks && npm run install:all-extensions",
-    "install:all-hooks": "npm run install:background-notify && npm run install:session-emoji && npm run install:session-color",
-    "install:all-extensions": "npm run install:safe-git",
+    "install:all": "npm run install:all-extensions",
+    "install:all-extensions": "npm run install:background-notify && npm run install:session-emoji && npm run install:session-color && npm run install:safe-git",
     "install:background-notify": "cd hooks/background-notify && npm run install:global",
     "install:session-emoji": "cd hooks/session-emoji && npm run install:global",
     "install:session-color": "cd hooks/session-color && npm run install:global",
     "install:safe-git": "cd extensions/safe-git && npm run install:global",
-    "uninstall:all": "npm run uninstall:all-hooks && npm run uninstall:all-extensions",
-    "uninstall:all-hooks": "npm run uninstall:background-notify && npm run uninstall:session-emoji && npm run uninstall:session-color",
-    "uninstall:all-extensions": "npm run uninstall:safe-git",
+    "uninstall:all": "npm run uninstall:all-extensions",
+    "uninstall:all-extensions": "npm run uninstall:background-notify && npm run uninstall:session-emoji && npm run uninstall:session-color && npm run uninstall:safe-git",
     "uninstall:background-notify": "cd hooks/background-notify && npm run uninstall:global",
     "uninstall:session-emoji": "cd hooks/session-emoji && npm run uninstall:global",
     "uninstall:session-color": "cd hooks/session-color && npm run uninstall:global",
@@ -41,7 +38,7 @@
     "node": ">=18.0.0"
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": ">=0.30.0"
+    "@mariozechner/pi-coding-agent": ">=0.36.0"
   },
   "devDependencies": {
     "@mariozechner/pi-coding-agent": "^0.36.0",

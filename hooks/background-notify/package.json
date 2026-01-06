@@ -1,17 +1,17 @@
 {
   "name": "@rhubarb-pi/background-notify",
   "version": "1.0.0",
-  "description": "Pi hook that notifies you when long-running tasks complete while your terminal is in the background",
+  "description": "Pi extension that notifies you when long-running tasks complete while your terminal is in the background",
   "main": "index.ts",
   "scripts": {
-    "install:global": "mkdir -p ~/.pi/agent/hooks && cp index.ts ~/.pi/agent/hooks/background-notify.ts && echo 'Installed to ~/.pi/agent/hooks/background-notify.ts'",
-    "install:project": "mkdir -p .pi/hooks && cp index.ts .pi/hooks/background-notify.ts && echo 'Installed to .pi/hooks/background-notify.ts'",
-    "uninstall:global": "rm -f ~/.pi/agent/hooks/background-notify.ts && echo 'Uninstalled from ~/.pi/agent/hooks/'",
-    "uninstall:project": "rm -f .pi/hooks/background-notify.ts && echo 'Uninstalled from .pi/hooks/'"
+    "install:global": "mkdir -p ~/.pi/agent/extensions && cp index.ts ~/.pi/agent/extensions/background-notify.ts && echo 'Installed to ~/.pi/agent/extensions/background-notify.ts'",
+    "install:project": "mkdir -p .pi/extensions && cp index.ts .pi/extensions/background-notify.ts && echo 'Installed to .pi/extensions/background-notify.ts'",
+    "uninstall:global": "rm -f ~/.pi/agent/extensions/background-notify.ts && echo 'Uninstalled from ~/.pi/agent/extensions/'",
+    "uninstall:project": "rm -f .pi/extensions/background-notify.ts && echo 'Uninstalled from .pi/extensions/'"
   },
   "keywords": [
     "pi",
-    "hook",
+    "extension",
     "notification",
     "background",
     "terminal"

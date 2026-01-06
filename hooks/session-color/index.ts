@@ -1,5 +1,5 @@
 /**
- * Session Color Hook
+ * Session Color Extension
  * 
  * Displays a colored band in the pi footer to visually distinguish sessions.
  * Colors are picked sequentially from a curated palette designed to maximize
