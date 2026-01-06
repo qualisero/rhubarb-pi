@@ -1,5 +1,5 @@
 /**
- * Session Emoji Hook
+ * Session Emoji Extension
  * 
  * Displays an emoji in the pi footer status line. Supports manual selection,
  * AI-powered selection based on conversation, or random assignment.

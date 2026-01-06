@@ -1,21 +1,16 @@
 # 🥧 Rhubarb Pi
 
-A collection of hooks and extensions for the [pi coding agent](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent).
+A collection of extensions for the [pi coding agent](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-## Hooks
-
-| Hook | Description | Install |
-|------|-------------|---------|
-| [🔔 background-notify](#-background-notify) | Notifications when tasks complete | `npm run install:background-notify` |
-| [🎨 session-emoji](#-session-emoji) | AI-powered emoji in footer | `npm run install:session-emoji` |
-| [🌈 session-color](#-session-color) | Colored band to distinguish sessions | `npm run install:session-color` |
 
 ## Extensions
 
 | Extension | Description | Install |
 |-----------|-------------|---------|
+| [🔔 background-notify](#-background-notify) | Notifications when tasks complete | `npm run install:background-notify` |
+| [🎨 session-emoji](#-session-emoji) | AI-powered emoji in footer | `npm run install:session-emoji` |
+| [🌈 session-color](#-session-color) | Colored band to distinguish sessions | `npm run install:session-color` |
 | [🔒 safe-git](#-safe-git) | Approval for git operations | `npm run install:safe-git` |
 
 ---
@@ -87,21 +82,29 @@ npm run install:session-color
 npm run install:safe-git
 ```
 
-**Restart pi** after installing for hooks to load.
+**Restart pi** after installing for extensions to load.
 
 ## Uninstall
 
 ```bash
 npm run uninstall:all          # Remove everything
-npm run uninstall:all-hooks    # Remove all hooks
 npm run uninstall:all-extensions  # Remove all extensions
 ```
 
 ## Requirements
 
-- [pi coding agent](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent) v0.30.0+
+- [pi coding agent](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent) v0.36.0+
 - Node.js 18+
 - macOS (for background-notify terminal activation)
+
+## Migration from v1.x
+
+If you're upgrading from v1.x, the hooks have been unified as extensions to align with pi's latest architecture. Your extensions will continue to work, but they'll now be installed to `~/.pi/agent/extensions/` instead of `~/.pi/agent/hooks/`.
+
+To migrate:
+1. Run `npm run uninstall:all` (if you had v1.x installed)
+2. Run `npm run install:all` to install to the new location
+3. Restart pi
 
 ## License
 

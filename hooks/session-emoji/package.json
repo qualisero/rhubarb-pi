@@ -1,17 +1,17 @@
 {
   "name": "@rhubarb-pi/session-emoji",
   "version": "1.0.0",
-  "description": "Pi hook that displays a contextual emoji in pi's footer",
+  "description": "Pi extension that displays a contextual emoji in pi's footer",
   "main": "index.ts",
   "scripts": {
-    "install:global": "mkdir -p ~/.pi/agent/hooks && cp index.ts ~/.pi/agent/hooks/session-emoji.ts && echo 'Installed to ~/.pi/agent/hooks/session-emoji.ts'",
-    "install:project": "mkdir -p .pi/hooks && cp index.ts .pi/hooks/session-emoji.ts && echo 'Installed to .pi/hooks/session-emoji.ts'",
-    "uninstall:global": "rm -f ~/.pi/agent/hooks/session-emoji.ts && echo 'Uninstalled from ~/.pi/agent/hooks/'",
-    "uninstall:project": "rm -f .pi/hooks/session-emoji.ts && echo 'Uninstalled from .pi/hooks/'"
+    "install:global": "mkdir -p ~/.pi/agent/extensions && cp index.ts ~/.pi/agent/extensions/session-emoji.ts && echo 'Installed to ~/.pi/agent/extensions/session-emoji.ts'",
+    "install:project": "mkdir -p .pi/extensions && cp index.ts .pi/extensions/session-emoji.ts && echo 'Installed to .pi/extensions/session-emoji.ts'",
+    "uninstall:global": "rm -f ~/.pi/agent/extensions/session-emoji.ts && echo 'Uninstalled from ~/.pi/agent/extensions/'",
+    "uninstall:project": "rm -f .pi/extensions/session-emoji.ts && echo 'Uninstalled from .pi/extensions/'"
   },
   "keywords": [
     "pi",
-    "hook",
+    "extension",
     "emoji",
     "session"
   ],
