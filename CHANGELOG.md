@@ -1,5 +1,49 @@
 # Changelog
 
+## v2.1.0 - Clipboard Extension
+
+### New Extension: 📋 clipboard
+
+A new agent tool that allows pi to save specific text to your system clipboard. The agent uses this selectively when you need to copy content elsewhere.
+
+**Features:**
+- **Agent-driven**: Agent automatically detects when clipboard would be helpful
+- **Cross-platform**: macOS (pbcopy), Linux (xclip), Windows (clip.exe via Git Bash)
+- **Selective usage**: Only for relevant content (commands, snippets, configs)
+- **Clean formatting**: Minimal trailing indicator design ("📋 Saved to clipboard")
+- **Easy selection**: Content presented in clean code blocks for manual copying
+- **Size limit**: 100KB maximum to prevent clipboard overflow
+- **Graceful degradation**: Installation instructions if clipboard tool unavailable
+- **Clean logs**: No debug output pollution
+
+**Installation:**
+```bash
+npm run install:clipboard
+```
+
+**Agent Guidelines:**
+The agent is instructed to:
+- Use when content is relevant to your workflow
+- Respond to phrases like "copy this", "save to clipboard", "I need this for..."
+- Format with clean code blocks followed by "📋 Saved to clipboard"
+- Never copy general output, logs, or already-visible conversation text
+
+**Example Response Format:**
+```bash
+docker run -d -p 8080:80 nginx
+```
+
+📋 Saved to clipboard
+
+**Platform Requirements:**
+- macOS: `pbcopy` (built-in) ✓
+- Linux: `xclip` (`sudo apt install xclip`)
+- Windows: `clip.exe` (via Git Bash) ✓
+
+[📖 Documentation](docs/clipboard.md)
+
+---
+
 ## v2.0.0 - Extensions Migration (Breaking Changes)
 
 ### 🔥 Breaking Changes

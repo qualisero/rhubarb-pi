@@ -1,0 +1,9 @@
+{
+  "name": "rhubarb-pi-clipboard",
+  "version": "1.0.0",
+  "description": "Agent tool to save specific text to the system clipboard",
+  "scripts": {
+    "install:global": "mkdir -p ~/.pi/agent/extensions && cp -r . ~/.pi/agent/extensions/clipboard && echo '✓ clipboard extension installed to ~/.pi/agent/extensions/clipboard'",
+    "uninstall:global": "rm -rf ~/.pi/agent/extensions/clipboard && echo '✓ clipboard extension uninstalled'"
+  }
+}
