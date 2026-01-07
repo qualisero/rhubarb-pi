@@ -1,6 +1,6 @@
 # Changelog
 
-## v2.1.0 - Clipboard Extension
+## v2.1.0 - Clipboard Extension & iTerm2 Fix
 
 ### New Extension: 📋 clipboard
 
@@ -41,6 +41,14 @@ docker run -d -p 8080:80 nginx
 - Windows: `clip.exe` (via Git Bash) ✓
 
 [📖 Documentation](docs/clipboard.md)
+
+### 🔧 Bug Fixes
+
+**background-notify: Fixed iTerm2 tab switching**
+- Fixed "bring to front" not selecting the correct tab in iTerm2
+- Previously would bring iTerm2 to front but leave wrong tab active
+- Now correctly selects both the window AND the specific tab containing the session
+- Uses index-based tab selection (`select tab tabIdx`) which works reliably in iTerm2
 
 ---
 

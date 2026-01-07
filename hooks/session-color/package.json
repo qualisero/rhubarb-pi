@@ -6,7 +6,7 @@
   "scripts": {
     "install:global": "mkdir -p ~/.pi/agent/extensions && cp index.ts ~/.pi/agent/extensions/session-color.ts && echo 'Installed to ~/.pi/agent/extensions/session-color.ts'",
     "install:project": "mkdir -p .pi/extensions && cp index.ts .pi/extensions/session-color.ts && echo 'Installed to .pi/extensions/session-color.ts'",
-    "uninstall:global": "rm -f ~/.pi/agent/extensions/session-color.ts && echo 'Uninstalled from ~/.pi/agent/extensions/'",
+    "uninstall:global": "rm -f ~/.pi/agent/extensions/session-color.ts && rm -rf ~/.pi/agent/extensions/session-color && echo 'Uninstalled from ~/.pi/agent/extensions/'",
     "uninstall:project": "rm -f .pi/extensions/session-color.ts && echo 'Uninstalled from .pi/extensions/'"
   },
   "keywords": [
