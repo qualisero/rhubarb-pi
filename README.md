@@ -12,6 +12,7 @@ A collection of extensions for the [pi coding agent](https://github.com/badlogic
 | [🎨 session-emoji](#-session-emoji) | AI-powered emoji in footer | `npm run install:session-emoji` |
 | [🌈 session-color](#-session-color) | Colored band to distinguish sessions | `npm run install:session-color` |
 | [🔒 safe-git](#-safe-git) | Approval for git operations | `npm run install:safe-git` |
+| [📋 clipboard](#-clipboard) | Agent tool to save text to clipboard | `npm run install:clipboard` |
 
 ---
 
@@ -69,6 +70,18 @@ npm run install:safe-git
 
 ---
 
+### 📋 clipboard
+
+Provides a `copy_to_clipboard` tool that allows the agent to save specific text to the system clipboard. The agent uses this selectively for commands, code snippets, and configurations you might need to paste elsewhere.
+
+```bash
+npm run install:clipboard
+```
+
+[📖 Documentation](docs/clipboard.md)
+
+---
+
 ## Quick Start
 
 ```bash
@@ -80,6 +93,7 @@ npm run install:background-notify
 npm run install:session-emoji
 npm run install:session-color
 npm run install:safe-git
+npm run install:clipboard
 ```
 
 **Restart pi** after installing for extensions to load.
