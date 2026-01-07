@@ -8,6 +8,10 @@
  * - git commit, push, reset --hard, rebase, merge, branch -d/-D, tag, stash drop, clean
  * - gh (GitHub CLI) - all commands
  *
+ * Features:
+ * - Per-command approval with option to approve all of same type for session
+ * - Example: Approve "gh pr view" once or approve all "GitHub CLI" commands for session
+ *
  * Configuration (in ~/.pi/agent/settings.json):
  * {
  *   "safeGit": {
@@ -41,6 +45,9 @@ export default function (pi: ExtensionAPI) {
   // Session overrides
   let sessionEnabledOverride: boolean | null = null;
   let sessionPromptLevelOverride: PromptLevel | null = null;
+  
+  // Session approvals: track which actions are auto-approved for this session
+  let sessionApprovedActions: Set<string> = new Set();
 
   // Patterns that require explicit approval, ordered by severity
   const gitPatterns: { pattern: RegExp; action: string; severity: Severity }[] = [
@@ -166,18 +173,27 @@ export default function (pi: ExtensionAPI) {
         "Session State:",
         `  Enabled: ${enabled ? "🔒 ON" : "🔓 OFF"}${sessionEnabledOverride !== null ? " (session override)" : ""}`,
         `  Prompt Level: ${promptLevel}${sessionPromptLevelOverride !== null ? " (session override)" : ""}`,
-        "",
-        "Global Defaults:",
-        `  Enabled: ${globalConfig.enabledByDefault ? "ON" : "OFF"}`,
-        `  Prompt Level: ${globalConfig.promptLevel}`,
-        "",
-        "Prompt Levels:",
-        `  🔴 high   - force push, hard reset, clean, delete branch`,
-        `  🟡 medium - push, commit, rebase, merge, tag, gh CLI`,
-        "",
-        "Commands: /safegit /safegit-level /safegit-status",
-        "───────────────────────",
       ];
+
+      if (sessionApprovedActions.size > 0) {
+        lines.push("");
+        lines.push("Auto-approved for this session:");
+        for (const action of sessionApprovedActions) {
+          lines.push(`  ✅ ${action}`);
+        }
+      }
+
+      lines.push("");
+      lines.push("Global Defaults:");
+      lines.push(`  Enabled: ${globalConfig.enabledByDefault ? "ON" : "OFF"}`);
+      lines.push(`  Prompt Level: ${globalConfig.promptLevel}`);
+      lines.push("");
+      lines.push("Prompt Levels:");
+      lines.push(`  🔴 high   - force push, hard reset, clean, delete branch`);
+      lines.push(`  🟡 medium - push, commit, rebase, merge, tag, gh CLI`);
+      lines.push("");
+      lines.push("Commands: /safegit /safegit-level /safegit-status");
+      lines.push("───────────────────────");
 
       ctx.ui.notify(lines.join("\n"), "info");
     },
@@ -195,6 +211,12 @@ export default function (pi: ExtensionAPI) {
     // Check all patterns (first match wins - patterns ordered by severity)
     for (const { pattern, action, severity } of gitPatterns) {
       if (pattern.test(command)) {
+        // Check if this action is already approved for this session
+        if (sessionApprovedActions.has(action)) {
+          ctx.ui.notify(`Git ${action} auto-approved (session)`, "info");
+          return undefined;
+        }
+
         // Check if this severity level should trigger a prompt
         if (!shouldPrompt(severity, promptLevel)) {
           return undefined;
@@ -210,22 +232,33 @@ export default function (pi: ExtensionAPI) {
           };
         }
 
-        // Interactive mode: ask for confirmation
+        // Interactive mode: ask for confirmation with option to approve all for session
         const title = `${icon} Git ${action} requires approval`;
         const message =
           severity === "high"
-            ? `⚠️ HIGH RISK OPERATION\n\nThe agent wants to run:\n\n  ${command}\n\nThis operation can cause data loss. Allow?`
-            : `The agent wants to run:\n\n  ${command}\n\nAllow this operation?`;
+            ? `⚠️ HIGH RISK OPERATION\n\nThe agent wants to run:\n\n  ${command}\n\nThis operation can cause data loss.`
+            : `The agent wants to run:\n\n  ${command}`;
 
-        const confirmed = await ctx.ui.confirm(title, message);
+        const choice = await ctx.ui.select(title, [
+          "✅ Allow once",
+          `✅✅ Allow all "${action}" for this session`,
+          "❌ Block",
+        ]);
 
-        if (!confirmed) {
+        if (!choice || choice === "❌ Block") {
           ctx.ui.notify(`Git ${action} blocked`, "warning");
           return { block: true, reason: `Git ${action} blocked by user` };
         }
 
-        // User approved - allow the command
-        ctx.ui.notify(`Git ${action} approved`, "info");
+        if (choice.startsWith("✅✅")) {
+          // Approve this action for the entire session
+          sessionApprovedActions.add(action);
+          ctx.ui.notify(`Git ${action} approved for this session`, "info");
+        } else {
+          // Approve just this once
+          ctx.ui.notify(`Git ${action} approved`, "info");
+        }
+
         return undefined;
       }
     }
@@ -237,6 +270,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     sessionEnabledOverride = null;
     sessionPromptLevelOverride = null;
+    sessionApprovedActions.clear();
 
     if (ctx.hasUI) {
       const { enabled, promptLevel } = getEffectiveConfig(ctx);

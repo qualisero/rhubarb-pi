@@ -8,6 +8,7 @@ Get notified when long-running tasks complete while your terminal is in the back
 - 🪟 Bring terminal to front automatically (macOS)
 - ⏱️ Configurable duration threshold
 - 🎛️ Per-session toggles
+- ⏲️ Smart timing: excludes user interaction time
 
 ## Installation
 
@@ -24,9 +25,9 @@ Add to `~/.pi/agent/settings.json`:
 ```json
 {
   "backgroundNotify": {
-    "enabledByDefault": false,
-    "thresholdMs": 5000,
+    "thresholdMs": 2000,
     "beep": true,
+    "beepSound": "Tink",
     "bringToFront": true
   }
 }
@@ -36,21 +37,47 @@ Add to `~/.pi/agent/settings.json`:
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `enabledByDefault` | `false` | Enable for new sessions by default |
-| `thresholdMs` | `5000` | Minimum task duration (ms) to trigger notification |
+| `thresholdMs` | `2000` | Minimum task duration (ms) to trigger notification |
 | `beep` | `true` | Play audio beep |
+| `beepSound` | `"Tink"` | macOS system sound name |
 | `bringToFront` | `true` | Bring terminal window to front |
 
 ## Commands
 
-### `/notify` - Toggle On/Off
+### `/notify` - Toggle Both On/Off
+
+Toggles both beep and focus. If either is ON, turns both OFF. If both are OFF, turns both ON.
 
 ```
 > /notify
-🔔 Background notifications enabled
+🔔 Background notifications ON (beep + focus)
 
 > /notify
-🔕 Background notifications disabled
+🔕 Background notifications OFF
+```
+
+### `/notify-status` - Show Current Settings
+
+```
+> /notify-status
+━━━ Background Notify Status ━━━
+
+CURRENT SESSION (effective):
+  Beep:     🔊 ON
+  Focus:    🪟 ON
+  Sound:    Tink
+
+GLOBAL DEFAULTS (settings.json):
+  Beep:      ON
+  Focus:     ON
+  Sound:     Tink
+  Threshold: 2000ms
+
+SESSION OVERRIDES:
+  Beep:     (inheriting from global)
+  Focus:    (inheriting from global)
+  Sound:    (inheriting from global)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 ### `/notify-test` - Test Notification
@@ -67,57 +94,87 @@ Triggers a test notification after 3 seconds:
 
 ```
 > /notify-beep
-🔊 Beep notifications enabled
+🔊 Beep ON
 
 > /notify-beep
-🔇 Beep notifications disabled
+🔇 Beep OFF
 ```
 
 ### `/notify-focus` - Toggle Bring-to-Front
 
 ```
 > /notify-focus
-🪟 Bring-to-front enabled
+🪟 Focus ON (bring terminal to front)
 
 > /notify-focus
-⬜ Bring-to-front disabled
+⬜ Focus OFF
 ```
 
-### `/notify-config` - Interactive Configuration
+### `/notify-config` - Configure Session Settings
 
-Opens a menu with all options:
+Configure notification settings for the current session only. Changes affect only this session and are reset when you start a new session.
 
 ```
 > /notify-config
-Background Notify Configuration
-  1. Enable for this session
-  2. Disable for this session
-  3. Toggle beep on/off
-  4. Toggle bring-to-front on/off
-  5. Set duration threshold
-  6. Test notification now
-  7. View current settings
-  8. View detected terminal info
-  9. Cancel
+━━━ Session Notify Configuration ━━━
+
+CURRENT (effective):
+  Beep: 🔊 ON  │  Focus: 🪟 ON  │  Sound: Tink
+
+SESSION overrides:
+  Beep: default  │  Focus: default  │  Sound: default
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Configure session notifications:
+  🔊 Test current beep
+  🎵 Tink (default) ✓
+  🎵 Basso
+  🎵 Glass
+  ... [more sounds]
+  ───────────────
+  💾 Save session as global default
+  🔄 Reset to global defaults
+  📋 View terminal info
+  ❌ Cancel
 ```
 
-### `/notify-status` - Show Status
+Options:
+- **Test/Select beep sounds**: Try different system sounds for this session
+- **Save session as global default**: Generate JSON to make current settings permanent
+- **Reset to global defaults**: Clear all session overrides
+- **View terminal info**: See terminal detection and capabilities
+
+### `/notify-config-global` - Configure Global Defaults
+
+Configure default notification settings that apply to all new sessions.
 
 ```
-> /notify-status
-📊 Background Notify Status
+> /notify-config-global
+━━━ Global Notify Configuration ━━━
 
-Session State:
-  Enabled: 🔔 yes (session override)
-  Beep: 🔊 on (global default)
-  Focus: 🪟 on (session override)
+CURRENT GLOBAL DEFAULTS:
+  Beep: ON  │  Focus: ON  │  Sound: Tink  │  Threshold: 2000ms
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Global Defaults:
-  Enabled: no
-  Beep: on
-  Focus: on
-  Threshold: 5000ms (5.0s)
+Configure global defaults:
+  ⚙️  Set: Beep only
+  ⚙️  Set: Focus only
+  ⚙️  Set: Both
+  ⚙️  Set: None
+  ───────────────
+  🔊 Change global beep sound:
+  🎵 Tink (default) ✓
+  🎵 Basso
+  🎵 Glass
+  ... [more sounds]
+  ───────────────
+  ❌ Cancel
 ```
+
+Options:
+- **Set notification modes**: Choose Beep only, Focus only, Both, or None
+- **Change beep sound**: Preview and select a different system sound
+- Provides the JSON to add to `~/.pi/agent/settings.json`
 
 ## Supported Terminals (macOS)
 
@@ -132,6 +189,7 @@ Global Defaults:
 1. Measures time between `agent_start` and `agent_end` events
 2. Checks if terminal is backgrounded (macOS `lsappinfo`)
 3. Notifies if task exceeded threshold and terminal is in background
+4. Updates tab title with emoji indicator whenever notification mode changes
 
 ## Troubleshooting
 
@@ -144,6 +202,11 @@ Global Defaults:
 - Only works on macOS
 - Check macOS accessibility permissions for terminal app
 - Verify terminal is in supported list
+
+### Tab title not updating
+- Most modern terminals support ANSI escape sequences
+- If not working, try iTerm2 or another modern terminal
+- Check that your shell prompt isn't overwriting the title
 
 ### Extension not loading
 - Verify extension is at `~/.pi/agent/extensions/background-notify.ts`
