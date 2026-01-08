@@ -284,7 +284,7 @@ export default function (pi: ExtensionAPI) {
         if (choice.startsWith("✅✅")) {
           // Approve this action type for the entire session
           sessionApprovedActions.add(action);
-          ctx.ui.notify(`✅ All "git ${action}" commands auto-approved for this session`, "success");
+          ctx.ui.notify(`✅ All "git ${action}" commands auto-approved for this session`, "info");
           ctx.ui.notify(`⏱️  Auto-approval will reset when session ends`, "info");
         } else {
           // Approve just this once
