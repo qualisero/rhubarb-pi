@@ -254,11 +254,10 @@ export default function (pi: ExtensionAPI) {
         }
 
         // Interactive mode: ask for confirmation with option to approve all for session
-        const title = `${icon} Git ${action} requires approval`;
-        const message =
+        const title =
           severity === "high"
-            ? `⚠️ HIGH RISK OPERATION\n\nThe agent wants to run:\n\n  ${command}\n\nThis operation can cause data loss.`
-            : `The agent wants to run:\n\n  ${command}`;
+            ? `${icon} ⚠️ HIGH RISK: Git ${action} requires approval`
+            : `${icon} Git ${action} requires approval`;
 
         const choice = await ctx.ui.select(title, [
           "✅ Allow this command once",
