@@ -108,6 +108,12 @@ Session State:
   Enabled: 🔒 ON
   Prompt Level: medium
 
+⏱️  Auto-approved for THIS SESSION ONLY:
+  ✅ All "git push" commands
+  ✅ All "git commit" commands
+
+  (Auto-approvals reset when session ends)
+
 Global Defaults:
   Enabled: ON
   Prompt Level: medium
@@ -124,7 +130,7 @@ Commands: /safegit /safegit-level /safegit-status
 
 ### Interactive Mode
 
-Shows confirmation dialog before execution:
+Shows confirmation dialog with three options:
 
 ```
 🟡 Git push requires approval
@@ -133,9 +139,17 @@ The agent wants to run:
 
   git push origin main
 
-Allow this operation?
-[Yes] [No]
+Options:
+  ✅ Allow this command once
+  ✅✅ Auto-approve all "git push" for this session only
+  ❌ Block this command
 ```
+
+**Session Auto-Approval:**
+- When you select "Auto-approve all", that specific git action (e.g., "push", "commit", "merge") is automatically approved for the remainder of the current session
+- Example: If you auto-approve "git push", all subsequent push commands will be allowed without prompting
+- Auto-approvals are **session-only** and reset when you start a new session or restart pi
+- You can view current auto-approvals with `/safegit-status`
 
 ### High-Risk Operations
 
@@ -150,8 +164,12 @@ The agent wants to run:
 
   git push --force origin main
 
-This operation can cause data loss. Allow?
-[Yes] [No]
+This operation can cause data loss.
+
+Options:
+  ✅ Allow this command once
+  ✅✅ Auto-approve all "git force push" for this session only
+  ❌ Block this command
 ```
 
 ### GitHub CLI
@@ -165,22 +183,35 @@ The agent wants to run:
 
   gh pr create --title "Feature" --body "Description"
 
-Allow this operation?
-[Yes] [No]
+Options:
+  ✅ Allow this command once
+  ✅✅ Auto-approve all "git GitHub CLI" for this session only
+  ❌ Block this command
 ```
 
 ### Non-Interactive Mode
 
 All protected operations are **blocked entirely**. This is a fail-safe—if no user can approve, the operation should not proceed.
 
+### Session Auto-Approval
+
+- When you choose "Auto-approve all" for a specific action, it's stored **only for the current session**
+- Auto-approved actions are tracked in memory (`sessionApprovedActions` Set)
+- All session approvals are cleared when:
+  - A new session starts
+  - You restart pi
+- This ensures auto-approvals never persist beyond your current work session
+
 ## How It Works
 
 1. Intercepts all `bash` tool calls
 2. Parses command to detect git/gh operations
 3. Classifies risk level based on subcommand and flags
-4. Checks prompt level to decide if approval needed
-5. In interactive mode: prompts for approval
-6. In non-interactive mode: blocks and returns error
+4. Checks if action is already auto-approved for this session
+5. Checks prompt level to decide if approval needed
+6. In interactive mode: prompts for approval with option to auto-approve for session
+7. In non-interactive mode: blocks and returns error
+8. Clears all auto-approvals when session starts/ends
 
 ## Examples
 
