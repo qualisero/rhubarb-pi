@@ -108,6 +108,18 @@ Session State:
   Enabled: 🔒 ON
   Prompt Level: medium
 
+⏱️  Auto-approved for THIS SESSION ONLY:
+  ✅ All "git push" commands
+  ✅ All "git commit" commands
+
+  (Auto-approvals reset when session ends)
+
+⏱️  Auto-blocked for THIS SESSION ONLY:
+  🚫 All "git force push" commands
+  🚫 All "git GitHub CLI" commands
+
+  (Auto-blocks reset when session ends)
+
 Global Defaults:
   Enabled: ON
   Prompt Level: medium
@@ -124,7 +136,7 @@ Commands: /safegit /safegit-level /safegit-status
 
 ### Interactive Mode
 
-Shows confirmation dialog before execution:
+Shows confirmation dialog with four options:
 
 ```
 🟡 Git push requires approval
@@ -133,9 +145,23 @@ The agent wants to run:
 
   git push origin main
 
-Allow this operation?
-[Yes] [No]
+Options:
+  ✅ Allow this command once
+  ⏭️  Decline this time (ask again later)
+  ✅✅ Auto-approve all "git push" for this session only
+  🚫 Auto-block all "git push" for this session only
 ```
+
+**Option Descriptions:**
+- **Allow once:** Approve this specific command, will prompt again next time
+- **Decline this time:** Block this command but ask again next time (doesn't set permanent block)
+- **Auto-approve all:** Automatically approve all "git push" commands for the remainder of this session
+- **Auto-block all:** Automatically block all "git push" commands for the remainder of this session
+
+**Session Behavior:**
+- Auto-approvals and auto-blocks are **session-only** and reset when you start a new session or restart pi
+- You can view current auto-approvals and auto-blocks with `/safegit-status`
+- Auto-blocks prevent the agent from even asking - commands are silently blocked
 
 ### High-Risk Operations
 
@@ -150,8 +176,13 @@ The agent wants to run:
 
   git push --force origin main
 
-This operation can cause data loss. Allow?
-[Yes] [No]
+This operation can cause data loss.
+
+Options:
+  ✅ Allow this command once
+  ⏭️  Decline this time (ask again later)
+  ✅✅ Auto-approve all "git force push" for this session only
+  🚫 Auto-block all "git force push" for this session only
 ```
 
 ### GitHub CLI
@@ -165,22 +196,41 @@ The agent wants to run:
 
   gh pr create --title "Feature" --body "Description"
 
-Allow this operation?
-[Yes] [No]
+Options:
+  ✅ Allow this command once
+  ⏭️  Decline this time (ask again later)
+  ✅✅ Auto-approve all "git GitHub CLI" for this session only
+  🚫 Auto-block all "git GitHub CLI" for this session only
 ```
 
 ### Non-Interactive Mode
 
 All protected operations are **blocked entirely**. This is a fail-safe—if no user can approve, the operation should not proceed.
 
+### Session Auto-Approval
+
+- When you choose "Auto-approve all" for a specific action, it's stored **only for the current session**
+- Auto-approved actions are tracked in memory (`sessionApprovedActions` Set)
+- All session approvals are cleared when:
+  - A new session starts
+  - You restart pi
+- This ensures auto-approvals and auto-blocks never persist beyond your current work session
+
 ## How It Works
 
 1. Intercepts all `bash` tool calls
 2. Parses command to detect git/gh operations
 3. Classifies risk level based on subcommand and flags
-4. Checks prompt level to decide if approval needed
-5. In interactive mode: prompts for approval
-6. In non-interactive mode: blocks and returns error
+4. Checks if action is already auto-blocked for this session (silent block if yes)
+5. Checks if action is already auto-approved for this session (allow if yes)
+6. Checks prompt level to decide if approval needed
+7. In interactive mode: prompts with four options:
+   - Allow once
+   - Auto-approve all for session
+   - Skip this time (block once, ask again later)
+   - Auto-block all for session
+8. In non-interactive mode: blocks and returns error
+9. Clears all auto-approvals and auto-blocks when session starts/ends
 
 ## Examples
 

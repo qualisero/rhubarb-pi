@@ -48,6 +48,9 @@ export default function (pi: ExtensionAPI) {
   
   // Session approvals: track which actions are auto-approved for this session
   let sessionApprovedActions: Set<string> = new Set();
+  
+  // Session blocks: track which actions are auto-blocked for this session
+  let sessionBlockedActions: Set<string> = new Set();
 
   // Patterns that require explicit approval, ordered by severity
   const gitPatterns: { pattern: RegExp; action: string; severity: Severity }[] = [
@@ -177,10 +180,22 @@ export default function (pi: ExtensionAPI) {
 
       if (sessionApprovedActions.size > 0) {
         lines.push("");
-        lines.push("Auto-approved for this session:");
+        lines.push("⏱️  Auto-approved for THIS SESSION ONLY:");
         for (const action of sessionApprovedActions) {
-          lines.push(`  ✅ ${action}`);
+          lines.push(`  ✅ All "git ${action}" commands`);
         }
+        lines.push("");
+        lines.push("  (Auto-approvals reset when session ends)");
+      }
+
+      if (sessionBlockedActions.size > 0) {
+        lines.push("");
+        lines.push("⏱️  Auto-blocked for THIS SESSION ONLY:");
+        for (const action of sessionBlockedActions) {
+          lines.push(`  🚫 All "git ${action}" commands`);
+        }
+        lines.push("");
+        lines.push("  (Auto-blocks reset when session ends)");
       }
 
       lines.push("");
@@ -211,9 +226,15 @@ export default function (pi: ExtensionAPI) {
     // Check all patterns (first match wins - patterns ordered by severity)
     for (const { pattern, action, severity } of gitPatterns) {
       if (pattern.test(command)) {
+        // Check if this action is already blocked for this session
+        if (sessionBlockedActions.has(action)) {
+          ctx.ui.notify(`🚫 Git ${action} auto-blocked (session setting)`, "warning");
+          return { block: true, reason: `Git ${action} blocked by user (session setting)` };
+        }
+
         // Check if this action is already approved for this session
         if (sessionApprovedActions.has(action)) {
-          ctx.ui.notify(`Git ${action} auto-approved (session)`, "info");
+          ctx.ui.notify(`✅ Git ${action} auto-approved (session setting)`, "info");
           return undefined;
         }
 
@@ -240,23 +261,34 @@ export default function (pi: ExtensionAPI) {
             : `The agent wants to run:\n\n  ${command}`;
 
         const choice = await ctx.ui.select(title, [
-          "✅ Allow once",
-          `✅✅ Allow all "${action}" for this session`,
-          "❌ Block",
+          "✅ Allow this command once",
+          "⏭️  Decline this time (ask again later)",
+          `✅✅ Auto-approve all "git ${action}" for this session only`,
+          `🚫 Auto-block all "git ${action}" for this session only`,
         ]);
 
-        if (!choice || choice === "❌ Block") {
-          ctx.ui.notify(`Git ${action} blocked`, "warning");
-          return { block: true, reason: `Git ${action} blocked by user` };
+        if (!choice || choice.startsWith("⏭️")) {
+          // Decline this time - block the command but don't add to blocked list
+          ctx.ui.notify(`Git ${action} declined`, "info");
+          return { block: true, reason: `Git ${action} declined by user` };
+        }
+
+        if (choice.startsWith("🚫")) {
+          // Block this action type for the entire session
+          sessionBlockedActions.add(action);
+          ctx.ui.notify(`🚫 All "git ${action}" commands auto-blocked for this session`, "warning");
+          ctx.ui.notify(`⏱️  Auto-block will reset when session ends`, "info");
+          return { block: true, reason: `Git ${action} blocked by user (session setting)` };
         }
 
         if (choice.startsWith("✅✅")) {
-          // Approve this action for the entire session
+          // Approve this action type for the entire session
           sessionApprovedActions.add(action);
-          ctx.ui.notify(`Git ${action} approved for this session`, "info");
+          ctx.ui.notify(`✅ All "git ${action}" commands auto-approved for this session`, "success");
+          ctx.ui.notify(`⏱️  Auto-approval will reset when session ends`, "info");
         } else {
           // Approve just this once
-          ctx.ui.notify(`Git ${action} approved`, "info");
+          ctx.ui.notify(`Git ${action} approved once`, "info");
         }
 
         return undefined;
@@ -268,9 +300,12 @@ export default function (pi: ExtensionAPI) {
 
   // Reset session state on new session
   pi.on("session_start", async (_event, ctx) => {
+    // Reset all session-specific overrides, approvals, and blocks
+    // This ensures auto-approvals and auto-blocks never persist across sessions
     sessionEnabledOverride = null;
     sessionPromptLevelOverride = null;
     sessionApprovedActions.clear();
+    sessionBlockedActions.clear();
 
     if (ctx.hasUI) {
       const { enabled, promptLevel } = getEffectiveConfig(ctx);
