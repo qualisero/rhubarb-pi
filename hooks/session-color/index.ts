@@ -1,10 +1,10 @@
 /**
  * Session Color Extension
- * 
+ *
  * Displays a colored band in the pi footer to visually distinguish sessions.
  * Colors are picked sequentially from a curated palette designed to maximize
  * visual distinction between consecutive sessions.
- * 
+ *
  * Configuration (in ~/.pi/agent/settings.json):
  * {
  *   "sessionColor": {
@@ -13,10 +13,6 @@
  *     "blockCount": "full"
  *   }
  * }
- * 
- * blockCount can be:
- * - "full" (default): fills the terminal width
- * - a number: fixed character count
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
@@ -24,10 +20,14 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Types & Constants
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface SessionColorConfig {
-  enabledByDefault?: boolean;
-  blockChar?: string;
-  blockCount?: number | "full";
+  enabledByDefault: boolean;
+  blockChar: string;
+  blockCount: number | "full";
 }
 
 interface ColorState {
@@ -36,7 +36,15 @@ interface ColorState {
   timestamp: number;
 }
 
-const DEFAULT_CONFIG: Required<SessionColorConfig> = {
+interface SessionState {
+  colorIndex: number | null;
+  assigned: boolean;
+  enabledOverride: boolean | null;
+  blockCharOverride: string | null;
+  blockCharIndex: number;
+}
+
+const DEFAULT_CONFIG: SessionColorConfig = {
   enabledByDefault: true,
   blockChar: "▁",
   blockCount: "full",
@@ -46,335 +54,206 @@ const STATE_FILE = path.join(os.homedir(), ".pi", "session-color-state.json");
 
 /**
  * 40 colors selected to maximize visual distinction.
- * 
- * Selection heuristic: each color is chosen to be very distinct from the
- * previous 5 colors and as distinct as possible from the previous 10.
- * This ensures that even when cycling through sessions quickly, colors
- * remain easily distinguishable.
- * 
- * Colors use ANSI 256-color codes for broad terminal compatibility.
- * The sequence alternates between warm/cool, light/dark, and saturated/muted
- * to maximize perceptual difference.
+ * Each color is chosen to be very distinct from the previous 5 colors.
+ * Uses ANSI 256-color codes for broad terminal compatibility.
  */
 const COLOR_PALETTE: number[] = [
-  196,  // 1.  Bright red
-  51,   // 2.  Cyan
-  226,  // 3.  Yellow
-  129,  // 4.  Purple
-  46,   // 5.  Bright green
-  208,  // 6.  Orange
-  27,   // 7.  Blue
-  213,  // 8.  Pink
-  118,  // 9.  Lime green
-  160,  // 10. Dark red
-  87,   // 11. Turquoise
-  220,  // 12. Gold
-  93,   // 13. Violet
-  34,   // 14. Forest green
-  202,  // 15. Dark orange
-  75,   // 16. Sky blue
-  199,  // 17. Magenta
-  154,  // 18. Yellow-green
-  124,  // 19. Maroon
-  45,   // 20. Light cyan
-  214,  // 21. Light orange
-  135,  // 22. Medium purple
-  40,   // 23. Green
-  166,  // 24. Rust
-  69,   // 25. Cornflower blue
-  205,  // 26. Hot pink
-  190,  // 27. Chartreuse
-  88,   // 28. Dark maroon
-  80,   // 29. Medium turquoise
-  228,  // 30. Light yellow
-  97,   // 31. Medium orchid
-  28,   // 32. Dark green
-  172,  // 33. Tan orange
-  63,   // 34. Slate blue
-  197,  // 35. Deep pink
-  82,   // 36. Bright lime
-  130,  // 37. Dark goldenrod
-  39,   // 38. Deep sky blue
-  219,  // 39. Light pink
-  106,  // 40. Olive green
+  196, 51, 226, 129, 46, 208, 27, 213, 118, 160,
+  87, 220, 93, 34, 202, 75, 199, 154, 124, 45,
+  214, 135, 40, 166, 69, 205, 190, 88, 80, 228,
+  97, 28, 172, 63, 197, 82, 130, 39, 219, 106,
 ];
 
-/**
- * Generate ANSI escape code for 256-color foreground
- */
-function colorCode(colorIndex: number): string {
-  return `\x1b[38;5;${colorIndex}m`;
-}
+const BLOCK_CHARS = [
+  { char: "▁", name: "Lower 1/8 block" },
+  { char: "▂", name: "Lower 1/4 block" },
+  { char: "▄", name: "Lower half block" },
+  { char: "█", name: "Full block" },
+  { char: "▔", name: "Upper 1/8 block" },
+  { char: "▀", name: "Upper half block" },
+  { char: "─", name: "Light horizontal" },
+  { char: "━", name: "Heavy horizontal" },
+  { char: "═", name: "Double horizontal" },
+];
 
 const RESET = "\x1b[0m";
 
-/**
- * Read the persistent color state from file
- */
-function readColorState(): ColorState | null {
-  try {
-    if (fs.existsSync(STATE_FILE)) {
-      const data = fs.readFileSync(STATE_FILE, "utf8");
-      return JSON.parse(data) as ColorState;
-    }
-  } catch {
-    // Ignore read errors
-  }
-  return null;
-}
-
-/**
- * Write the color state to file
- */
-function writeColorState(state: ColorState): void {
-  try {
-    const dir = path.dirname(STATE_FILE);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), "utf8");
-  } catch {
-    // Ignore write errors
-  }
-}
-
-/**
- * Block characters for cycling with /color-char
- */
-const BLOCK_CHARS = [
-  { char: "▁", name: "Lower one eighth block", look: "Thin underline" },
-  { char: "▂", name: "Lower one quarter block", look: "Slightly thicker" },
-  { char: "▄", name: "Lower half block", look: "Half height" },
-  { char: "█", name: "Full block", look: "Solid bar" },
-  { char: "▔", name: "Upper one eighth block", look: "Thin overline" },
-  { char: "▀", name: "Upper half block", look: "Top half" },
-  { char: "─", name: "Box light horizontal", look: "Thin line" },
-  { char: "━", name: "Box heavy horizontal", look: "Thick line" },
-  { char: "═", name: "Box double horizontal", look: "Double line" },
-];
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Extension
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function (pi: ExtensionAPI) {
-  let sessionColorIndex: number | null = null;
-  let colorAssigned = false;
-  let sessionEnabledOverride: boolean | null = null;
-  let sessionBlockCharOverride: string | null = null;
-  let sessionBlockCharIndex: number = 0;
+  const state: SessionState = {
+    colorIndex: null,
+    assigned: false,
+    enabledOverride: null,
+    blockCharOverride: null,
+    blockCharIndex: 0,
+  };
+
   let currentCtx: ExtensionContext | null = null;
   let resizeHandler: (() => void) | null = null;
 
-  registerCommands(
-    pi,
-    () => sessionColorIndex,
-    (idx) => { sessionColorIndex = idx; },
-    () => colorAssigned,
-    (assigned) => { colorAssigned = assigned; },
-    () => sessionEnabledOverride,
-    (value) => { sessionEnabledOverride = value; },
-    () => sessionBlockCharOverride,
-    (value) => { sessionBlockCharOverride = value; },
-    () => sessionBlockCharIndex,
-    (idx) => { sessionBlockCharIndex = idx; }
-  );
+  function setupResizeListener(ctx: ExtensionContext, config: SessionColorConfig) {
+    if (resizeHandler) process.stdout.off("resize", resizeHandler);
 
-  /**
-   * Set up resize listener to update color band width
-   */
-  function setupResizeListener(ctx: ExtensionContext, config: Required<SessionColorConfig>) {
-    if (resizeHandler) {
-      process.stdout.off("resize", resizeHandler);
-    }
-
-    if (config.blockCount === "full" && sessionColorIndex !== null) {
+    if (config.blockCount === "full" && state.colorIndex !== null) {
       currentCtx = ctx;
       resizeHandler = () => {
-        if (currentCtx && sessionColorIndex !== null) {
-          const isEnabled = sessionEnabledOverride !== null 
-            ? sessionEnabledOverride 
-            : config.enabledByDefault;
-          if (isEnabled) {
-            updateStatus(currentCtx, config, sessionColorIndex);
-          }
+        if (currentCtx && state.colorIndex !== null) {
+          const isEnabled = state.enabledOverride ?? config.enabledByDefault;
+          if (isEnabled) updateStatus(currentCtx, config, state);
         }
       };
       process.stdout.on("resize", resizeHandler);
     }
   }
 
-  /**
-   * Session start - assign color
-   */
+  registerCommands(pi, state);
+
   pi.on("session_start", async (_, ctx) => {
-    sessionColorIndex = null;
-    colorAssigned = false;
-    sessionEnabledOverride = null;
-    sessionBlockCharOverride = null;
-    sessionBlockCharIndex = 0;
     currentCtx = ctx;
-
-    const config = getConfig(ctx);
-    if (!config.enabledByDefault) {
-      ctx.ui.setStatus("0-color-band", "");
-      return;
-    }
-
-    const sessionId = ctx.sessionManager.getSessionId();
-    const state = readColorState();
-
-    // Check if this session already has a color assigned
-    if (state && state.sessionId === sessionId) {
-      sessionColorIndex = state.lastColorIndex;
-      colorAssigned = true;
-      updateStatus(ctx, config, sessionColorIndex);
-      setupResizeListener(ctx, config);
-      return;
-    }
-
-    // Assign next color in sequence
-    const lastIndex = state?.lastColorIndex ?? -1;
-    const nextIndex = (lastIndex + 1) % COLOR_PALETTE.length;
-
-    sessionColorIndex = nextIndex;
-    colorAssigned = true;
-
-    writeColorState({
-      lastColorIndex: nextIndex,
-      sessionId,
-      timestamp: Date.now(),
-    });
-
-    updateStatus(ctx, config, nextIndex);
-    setupResizeListener(ctx, config);
+    initSession(ctx, state, setupResizeListener);
   });
 
-  /**
-   * Session switch - handle new sessions
-   */
   pi.on("session_switch", async (event, ctx) => {
     if (event.reason === "new") {
-      sessionColorIndex = null;
-      colorAssigned = false;
-      sessionEnabledOverride = null;
-      sessionBlockCharOverride = null;
-      sessionBlockCharIndex = 0;
       currentCtx = ctx;
-
-      const config = getConfig(ctx);
-      if (!config.enabledByDefault) {
-        ctx.ui.setStatus("0-color-band", "");
-        return;
-      }
-
-      const sessionId = ctx.sessionManager.getSessionId();
-      const state = readColorState();
-
-      // Assign next color in sequence
-      const lastIndex = state?.lastColorIndex ?? -1;
-      const nextIndex = (lastIndex + 1) % COLOR_PALETTE.length;
-
-      sessionColorIndex = nextIndex;
-      colorAssigned = true;
-
-      writeColorState({
-        lastColorIndex: nextIndex,
-        sessionId,
-        timestamp: Date.now(),
-      });
-
-      updateStatus(ctx, config, nextIndex);
-      setupResizeListener(ctx, config);
+      initSession(ctx, state, setupResizeListener);
     }
   });
 }
 
-function getConfig(ctx: ExtensionContext): Required<SessionColorConfig> {
-  const settings = (ctx as any).settingsManager?.getSettings() ?? {};
-  return {
-    ...DEFAULT_CONFIG,
-    ...(settings.sessionColor ?? {}),
-  };
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Session Lifecycle
+// ─────────────────────────────────────────────────────────────────────────────
 
-function updateStatus(ctx: ExtensionContext, config: Required<SessionColorConfig>, colorIndex: number, blockCharOverride?: string) {
-  const color = COLOR_PALETTE[colorIndex];
-  const count = config.blockCount === "full" 
-    ? (process.stdout.columns || 80) 
-    : config.blockCount;
-  const char = blockCharOverride ?? config.blockChar;
-  const block = char.repeat(count);
-  const coloredBlock = `${colorCode(color)}${block}${RESET}`;
-  ctx.ui.setStatus("0-color-band", coloredBlock);
-}
-
-function manualSetColor(
+function initSession(
   ctx: ExtensionContext,
-  config: Required<SessionColorConfig>,
-  colorIndex: number,
-  setColorIndex: (idx: number) => void,
-  setAssigned: () => void,
-  blockCharOverride?: string
+  state: SessionState,
+  setupResize: (ctx: ExtensionContext, config: SessionColorConfig) => void
 ) {
-  setColorIndex(colorIndex);
-  setAssigned();
-
-  writeColorState({
-    lastColorIndex: colorIndex,
-    sessionId: ctx.sessionManager.getSessionId(),
-    timestamp: Date.now(),
+  // Reset state
+  Object.assign(state, {
+    colorIndex: null,
+    assigned: false,
+    enabledOverride: null,
+    blockCharOverride: null,
+    blockCharIndex: 0,
   });
 
-  updateStatus(ctx, config, colorIndex, blockCharOverride);
+  const config = getConfig(ctx);
+  if (!config.enabledByDefault) {
+    ctx.ui.setStatus("0-color-band", "");
+    return;
+  }
+
+  const sessionId = ctx.sessionManager.getSessionId();
+  const persisted = readColorState();
+
+  // Check if this session already has a color
+  if (persisted?.sessionId === sessionId) {
+    state.colorIndex = persisted.lastColorIndex;
+    state.assigned = true;
+    updateStatus(ctx, config, state);
+    setupResize(ctx, config);
+    return;
+  }
+
+  // Assign next color in sequence
+  const lastIndex = persisted?.lastColorIndex ?? -1;
+  const nextIndex = (lastIndex + 1) % COLOR_PALETTE.length;
+
+  state.colorIndex = nextIndex;
+  state.assigned = true;
+
+  writeColorState({ lastColorIndex: nextIndex, sessionId, timestamp: Date.now() });
+  updateStatus(ctx, config, state);
+  setupResize(ctx, config);
 }
 
-function registerCommands(
-  pi: ExtensionAPI,
-  getColorIndex: () => number | null,
-  setColorIndex: (idx: number) => void,
-  getAssigned: () => boolean,
-  setAssigned: (assigned: boolean) => void,
-  getSessionOverride: () => boolean | null,
-  setSessionOverride: (value: boolean | null) => void,
-  getBlockCharOverride: () => string | null,
-  setBlockCharOverride: (value: string | null) => void,
-  getBlockCharIndex: () => number,
-  setBlockCharIndex: (idx: number) => void
-) {
-  /**
-   * /color - Toggle session color on/off
-   */
+// ─────────────────────────────────────────────────────────────────────────────
+// Status Display
+// ─────────────────────────────────────────────────────────────────────────────
+
+function updateStatus(ctx: ExtensionContext, config: SessionColorConfig, state: SessionState) {
+  if (state.colorIndex === null) return;
+
+  const color = COLOR_PALETTE[state.colorIndex];
+  const count = config.blockCount === "full" ? (process.stdout.columns || 80) : config.blockCount;
+  const char = state.blockCharOverride ?? config.blockChar;
+  const block = char.repeat(count);
+  ctx.ui.setStatus("0-color-band", `\x1b[38;5;${color}m${block}${RESET}`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Persistence
+// ─────────────────────────────────────────────────────────────────────────────
+
+function readColorState(): ColorState | null {
+  try {
+    if (fs.existsSync(STATE_FILE)) {
+      return JSON.parse(fs.readFileSync(STATE_FILE, "utf8")) as ColorState;
+    }
+  } catch {
+    // Ignore
+  }
+  return null;
+}
+
+function writeColorState(state: ColorState): void {
+  try {
+    const dir = path.dirname(STATE_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), "utf8");
+  } catch {
+    // Ignore
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getConfig(ctx: ExtensionContext): SessionColorConfig {
+  const settings = (ctx as any).settingsManager?.getSettings() ?? {};
+  return { ...DEFAULT_CONFIG, ...(settings.sessionColor ?? {}) };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Commands
+// ─────────────────────────────────────────────────────────────────────────────
+
+function registerCommands(pi: ExtensionAPI, state: SessionState) {
   pi.registerCommand("color", {
-    description: "Toggle color band on/off (session)",
-    handler: async (args, ctx) => {
+    description: "Toggle color band on/off",
+    handler: async (_, ctx) => {
       const config = getConfig(ctx);
-      const sessionOverride = getSessionOverride();
-      const currentState = sessionOverride !== null ? sessionOverride : config.enabledByDefault;
-      const newState = !currentState;
+      const current = state.enabledOverride ?? config.enabledByDefault;
+      state.enabledOverride = !current;
 
-      setSessionOverride(newState);
-
-      if (newState) {
-        ctx.ui.notify("🎨 Session color ON", "info");
-        const colorIndex = getColorIndex();
-        if (colorIndex !== null) {
-          updateStatus(ctx, config, colorIndex, getBlockCharOverride() ?? undefined);
+      if (state.enabledOverride) {
+        ctx.ui.notify("🎨 Color band ON", "info");
+        if (state.colorIndex !== null) {
+          updateStatus(ctx, config, state);
         } else {
           // Assign next color
-          const state = readColorState();
-          const lastIndex = state?.lastColorIndex ?? -1;
-          const nextIndex = (lastIndex + 1) % COLOR_PALETTE.length;
-          manualSetColor(ctx, config, nextIndex, setColorIndex, () => setAssigned(true), getBlockCharOverride() ?? undefined);
+          const persisted = readColorState();
+          const nextIndex = ((persisted?.lastColorIndex ?? -1) + 1) % COLOR_PALETTE.length;
+          state.colorIndex = nextIndex;
+          state.assigned = true;
+          writeColorState({ lastColorIndex: nextIndex, sessionId: ctx.sessionManager.getSessionId(), timestamp: Date.now() });
+          updateStatus(ctx, config, state);
         }
       } else {
-        ctx.ui.notify("⬜ Session color OFF", "warning");
+        ctx.ui.notify("⬜ Color band OFF", "warning");
         ctx.ui.setStatus("0-color-band", "");
       }
     },
   });
 
-  /**
-   * /color-set - Manually set a color by index or pick from preview
-   */
   pi.registerCommand("color-set", {
-    description: "Set color by index (session)",
+    description: "Set color by index (0-39)",
     handler: async (args, ctx) => {
       const config = getConfig(ctx);
       const input = args.trim();
@@ -385,9 +264,8 @@ function registerCommands(
           ctx.ui.notify(`Invalid index. Use 0-${COLOR_PALETTE.length - 1}`, "error");
           return;
         }
-        manualSetColor(ctx, config, index, setColorIndex, () => setAssigned(true), getBlockCharOverride() ?? undefined);
-        const color = COLOR_PALETTE[index];
-        ctx.ui.notify(`Color set to index ${index} (ANSI ${color})`, "info");
+        setColor(ctx, state, index);
+        ctx.ui.notify(`Color set to index ${index}`, "info");
         return;
       }
 
@@ -396,19 +274,16 @@ function registerCommands(
         return;
       }
 
-      // Show color preview in groups of 10
-      const previews: string[] = [];
+      // Show preview
+      ctx.ui.notify("Color palette:", "info");
       for (let i = 0; i < COLOR_PALETTE.length; i += 10) {
-        const group = COLOR_PALETTE.slice(i, i + 10);
-        const blocks = group.map((c) => `${colorCode(c)}██${RESET}`).join(" ");
-        const range = `${i}-${Math.min(i + 9, COLOR_PALETTE.length - 1)}`;
-        previews.push(`${range}: ${blocks}`);
+        const blocks = COLOR_PALETTE.slice(i, i + 10)
+          .map((c) => `\x1b[38;5;${c}m██${RESET}`)
+          .join(" ");
+        ctx.ui.notify(`${String(i).padStart(2)}-${Math.min(i + 9, 39)}: ${blocks}`, "info");
       }
 
-      ctx.ui.notify("Available colors:\n", "info");
-      previews.forEach((p) => ctx.ui.notify(p, "info"));
-
-      const indexStr = await ctx.ui.input(`Enter color index (0-${COLOR_PALETTE.length - 1}):`);
+      const indexStr = await ctx.ui.input(`Enter index (0-${COLOR_PALETTE.length - 1}):`);
       if (!indexStr) return;
 
       const index = parseInt(indexStr, 10);
@@ -417,151 +292,86 @@ function registerCommands(
         return;
       }
 
-      manualSetColor(ctx, config, index, setColorIndex, () => setAssigned(true), getBlockCharOverride() ?? undefined);
+      setColor(ctx, state, index);
       ctx.ui.notify(`Color set to index ${index}`, "info");
     },
   });
 
-  /**
-   * /color-config - View and configure settings
-   */
-  pi.registerCommand("color-config", {
-    description: "View settings and configure globals",
-    handler: async (args, ctx) => {
-      const config = getConfig(ctx);
-      const sessionOverride = getSessionOverride();
-      const isEnabled = sessionOverride !== null ? sessionOverride : config.enabledByDefault;
-      const colorIndex = getColorIndex();
-      const state = readColorState();
-
-      ctx.ui.notify("─── Session Color Settings ───", "info");
-      ctx.ui.notify(
-        `Session: ${isEnabled ? "🎨 ON" : "⬜ OFF"}  │  Index: ${colorIndex ?? "(none)"}  │  Palette: ${COLOR_PALETTE.length} colors`,
-        "info"
-      );
-      ctx.ui.notify(
-        `Global: ${config.enabledByDefault ? "ON" : "OFF"}  │  Char: "${config.blockChar}"  │  Count: ${config.blockCount}`,
-        "info"
-      );
-      if (state) {
-        ctx.ui.notify(`Last used: index ${state.lastColorIndex}`, "info");
-      }
-      ctx.ui.notify("───────────────────────────────", "info");
-
-      if (!ctx.hasUI) return;
-
-      const action = await ctx.ui.select("Configure color", [
-        "🎨 Preview all colors",
-        "⚙️  Set global default: Disabled",
-        "⚙️  Set global default: Enabled",
-        "⚙️  Change block character",
-        "🔄 Reset color sequence",
-        "❌ Cancel",
-      ]);
-
-      if (!action || action === "❌ Cancel") return;
-
-      switch (action) {
-        case "🎨 Preview all colors": {
-          ctx.ui.notify("\nColor palette:\n", "info");
-          for (let i = 0; i < COLOR_PALETTE.length; i += 10) {
-            const group = COLOR_PALETTE.slice(i, i + 10);
-            const blocks = group.map((c) => `${colorCode(c)}██${RESET}`).join(" ");
-            const indices = group.map((_, j) => String(i + j).padStart(2)).join("  ");
-            ctx.ui.notify(`${blocks}`, "info");
-            ctx.ui.notify(`${indices}`, "info");
-          }
-          break;
-        }
-        case "⚙️  Set global default: Disabled": {
-          ctx.ui.notify("To disable by default, add to ~/.pi/agent/settings.json:", "info");
-          ctx.ui.notify(JSON.stringify({ sessionColor: { enabledByDefault: false } }, null, 2), "info");
-          break;
-        }
-        case "⚙️  Set global default: Enabled": {
-          ctx.ui.notify("To enable by default, add to ~/.pi/agent/settings.json:", "info");
-          ctx.ui.notify(JSON.stringify({ sessionColor: { enabledByDefault: true } }, null, 2), "info");
-          break;
-        }
-        case "⚙️  Change block character": {
-          // Show character selection menu
-          const charOptions = BLOCK_CHARS.map(c => `${c.char} ${c.name}`);
-          charOptions.push("❌ Cancel");
-          
-          const choice = await ctx.ui.select("Select block character:", charOptions);
-          
-          if (!choice || choice === "❌ Cancel") {
-            ctx.ui.notify("Cancelled.", "info");
-            break;
-          }
-          
-          const selectedChar = BLOCK_CHARS.find(c => choice.startsWith(c.char));
-          if (selectedChar) {
-            ctx.ui.notify(`To use "${selectedChar.char}" globally, add to ~/.pi/agent/settings.json:`, "info");
-            ctx.ui.notify(JSON.stringify({ sessionColor: { blockChar: selectedChar.char } }, null, 2), "info");
-          }
-          break;
-        }
-        case "🔄 Reset color sequence": {
-          writeColorState({
-            lastColorIndex: -1,
-            sessionId: "",
-            timestamp: Date.now(),
-          });
-          ctx.ui.notify("Color sequence reset. Next session will start at color 0.", "info");
-          break;
-        }
-      }
-    },
-  });
-
-  /**
-   * /color-next - Skip to next color
-   */
   pi.registerCommand("color-next", {
-    description: "Skip to next color (session)",
-    handler: async (args, ctx) => {
-      const config = getConfig(ctx);
-      const currentIndex = getColorIndex() ?? -1;
-      const nextIndex = (currentIndex + 1) % COLOR_PALETTE.length;
-
-      manualSetColor(ctx, config, nextIndex, setColorIndex, () => setAssigned(true), getBlockCharOverride() ?? undefined);
+    description: "Skip to next color",
+    handler: async (_, ctx) => {
+      const nextIndex = ((state.colorIndex ?? -1) + 1) % COLOR_PALETTE.length;
+      setColor(ctx, state, nextIndex);
       ctx.ui.notify(`Skipped to color ${nextIndex}`, "info");
     },
   });
 
-  /**
-   * /color-char - Change block character for this session
-   */
   pi.registerCommand("color-char", {
-    description: "Change block character (session, cycles if no arg)",
+    description: "Change block character (cycles if no arg)",
     handler: async (args, ctx) => {
       const config = getConfig(ctx);
-      const colorIndex = getColorIndex();
       const input = args.trim();
 
-      if (colorIndex === null) {
+      if (state.colorIndex === null) {
         ctx.ui.notify("No color assigned yet", "error");
         return;
       }
 
       if (input) {
-        // Direct character input
-        setBlockCharOverride(input);
-        updateStatus(ctx, config, colorIndex, input);
-        ctx.ui.notify(`Block character set to "${input}"`, "info");
+        state.blockCharOverride = input;
+        updateStatus(ctx, config, state);
+        ctx.ui.notify(`Block char set to "${input}"`, "info");
         return;
       }
 
-      // Cycle through BLOCK_CHARS
-      const currentIdx = getBlockCharIndex();
-      const nextIdx = (currentIdx + 1) % BLOCK_CHARS.length;
-      setBlockCharIndex(nextIdx);
-
-      const nextChar = BLOCK_CHARS[nextIdx];
-      setBlockCharOverride(nextChar.char);
-      updateStatus(ctx, config, colorIndex, nextChar.char);
-      ctx.ui.notify(`${nextChar.char} ${nextChar.name} (${nextChar.look})`, "info");
+      // Cycle through chars
+      state.blockCharIndex = (state.blockCharIndex + 1) % BLOCK_CHARS.length;
+      const next = BLOCK_CHARS[state.blockCharIndex];
+      state.blockCharOverride = next.char;
+      updateStatus(ctx, config, state);
+      ctx.ui.notify(`${next.char} ${next.name}`, "info");
     },
   });
+
+  pi.registerCommand("color-config", {
+    description: "View color settings",
+    handler: async (_, ctx) => {
+      const config = getConfig(ctx);
+      const isEnabled = state.enabledOverride ?? config.enabledByDefault;
+      const persisted = readColorState();
+
+      ctx.ui.notify("─── Session Color ───", "info");
+      ctx.ui.notify(`Status: ${isEnabled ? "🎨 ON" : "⬜ OFF"}  │  Index: ${state.colorIndex ?? "(none)"}`, "info");
+      ctx.ui.notify(`Char: "${state.blockCharOverride ?? config.blockChar}"  │  Palette: ${COLOR_PALETTE.length} colors`, "info");
+      if (persisted) ctx.ui.notify(`Last used: index ${persisted.lastColorIndex}`, "info");
+
+      if (!ctx.hasUI) return;
+
+      const action = await ctx.ui.select("Options", [
+        "🎨 Preview all colors",
+        "🔄 Reset sequence",
+        "❌ Cancel",
+      ]);
+
+      if (action?.startsWith("🎨")) {
+        for (let i = 0; i < COLOR_PALETTE.length; i += 10) {
+          const blocks = COLOR_PALETTE.slice(i, i + 10)
+            .map((c) => `\x1b[38;5;${c}m██${RESET}`)
+            .join(" ");
+          ctx.ui.notify(blocks, "info");
+        }
+      } else if (action?.startsWith("🔄")) {
+        writeColorState({ lastColorIndex: -1, sessionId: "", timestamp: Date.now() });
+        ctx.ui.notify("Sequence reset. Next session starts at color 0.", "info");
+      }
+    },
+  });
+}
+
+function setColor(ctx: ExtensionContext, state: SessionState, index: number) {
+  const config = getConfig(ctx);
+  state.colorIndex = index;
+  state.assigned = true;
+  writeColorState({ lastColorIndex: index, sessionId: ctx.sessionManager.getSessionId(), timestamp: Date.now() });
+  updateStatus(ctx, config, state);
 }
