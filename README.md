@@ -12,7 +12,6 @@ A collection of extensions for the [pi coding agent](https://github.com/badlogic
 | [🎨 session-emoji](#-session-emoji) | AI-powered emoji in footer | `npm run install:session-emoji` |
 | [🌈 session-color](#-session-color) | Colored band to distinguish sessions | `npm run install:session-color` |
 | [🔒 safe-git](#-safe-git) | Approval for git operations | `npm run install:safe-git` |
-| [📋 clipboard](#-clipboard) | Agent tool to save text to clipboard | `npm run install:clipboard` |
 
 ---
 
@@ -62,23 +61,13 @@ npm run install:session-color
 
 Require explicit user approval before dangerous git operations. High-risk operations (force push, hard reset) show warnings; medium-risk (push, commit) require confirmation. Blocks entirely in non-interactive mode.
 
+**Commands:** `/safegit`, `/safegit-status`, `/safegit-level`
+
 ```bash
 npm run install:safe-git
 ```
 
 [📖 Documentation](docs/safe-git.md)
-
----
-
-### 📋 clipboard
-
-Provides a `copy_to_clipboard` tool that allows the agent to save specific text to the system clipboard. The agent uses this selectively for commands, code snippets, and configurations you might need to paste elsewhere.
-
-```bash
-npm run install:clipboard
-```
-
-[📖 Documentation](docs/clipboard.md)
 
 ---
 
@@ -93,10 +82,17 @@ npm run install:background-notify
 npm run install:session-emoji
 npm run install:session-color
 npm run install:safe-git
-npm run install:clipboard
 ```
 
 **Restart pi** after installing for extensions to load.
+
+## Testing
+
+```bash
+npm run test:e2e       # Run E2E tests (requires pi + tmux)
+npm run test:e2e:watch # Watch mode
+npm run typecheck      # TypeScript check
+```
 
 ## Uninstall
 
@@ -108,18 +104,10 @@ npm run uninstall:all-extensions  # Remove all extensions
 ## Requirements
 
 - [pi coding agent](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent) v0.36.0+
-- Node.js 18+
+- Node.js 20+
 - macOS (for background-notify terminal activation)
-
-## Migration from v1.x
-
-If you're upgrading from v1.x, the hooks have been unified as extensions to align with pi's latest architecture. Your extensions will continue to work, but they'll now be installed to `~/.pi/agent/extensions/` instead of `~/.pi/agent/hooks/`.
-
-To migrate:
-1. Run `npm run uninstall:all` (if you had v1.x installed)
-2. Run `npm run install:all` to install to the new location
-3. Restart pi
 
 ## License
 
 MIT
+# Trigger CI

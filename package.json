@@ -20,24 +20,26 @@
   "homepage": "https://github.com/qualisero/rhubarb-pi#readme",
   "scripts": {
     "install:all": "npm run install:all-extensions",
-    "install:all-extensions": "npm run install:background-notify && npm run install:session-emoji && npm run install:session-color && npm run install:safe-git && npm run install:clipboard",
+    "install:all-extensions": "npm run install:background-notify && npm run install:session-emoji && npm run install:session-color && npm run install:safe-git",
     "install:background-notify": "cd hooks/background-notify && npm run install:global",
     "install:session-emoji": "cd hooks/session-emoji && npm run install:global",
     "install:session-color": "cd hooks/session-color && npm run install:global",
     "install:safe-git": "cd extensions/safe-git && npm run install:global",
-    "install:clipboard": "cd extensions/clipboard && npm run install:global",
     "uninstall:all": "npm run uninstall:all-extensions",
-    "uninstall:all-extensions": "npm run uninstall:background-notify && npm run uninstall:session-emoji && npm run uninstall:session-color && npm run uninstall:safe-git && npm run uninstall:clipboard",
+    "uninstall:all-extensions": "npm run uninstall:background-notify && npm run uninstall:session-emoji && npm run uninstall:session-color && npm run uninstall:safe-git",
     "uninstall:background-notify": "cd hooks/background-notify && npm run uninstall:global",
     "uninstall:session-emoji": "cd hooks/session-emoji && npm run uninstall:global",
     "uninstall:session-color": "cd hooks/session-color && npm run uninstall:global",
     "uninstall:safe-git": "cd extensions/safe-git && npm run uninstall:global",
-    "uninstall:clipboard": "cd extensions/clipboard && npm run uninstall:global",
     "typecheck": "tsc --noEmit",
-    "verify": "./verify.sh"
+    "verify": "./verify.sh",
+    "test": "vitest run",
+    "test:e2e": "vitest run --config vitest.config.ts",
+    "test:e2e:watch": "vitest --config vitest.config.ts",
+    "test:coverage": "vitest run --coverage"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "peerDependencies": {
     "@mariozechner/pi-coding-agent": ">=0.36.0"
@@ -45,6 +47,7 @@
   "devDependencies": {
     "@mariozechner/pi-coding-agent": "^0.36.0",
     "@types/node": "^25.0.3",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.1.4"
   }
 }
