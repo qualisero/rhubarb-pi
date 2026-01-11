@@ -308,8 +308,27 @@ end tell`;
 // ─────────────────────────────────────────────────────────────────────────────
 
 function getConfig(ctx: ExtensionContext): BackgroundNotifyConfig {
+  // Try to get settings from settingsManager first (for backward compatibility)
   const settings = (ctx as any).settingsManager?.getSettings() ?? {};
-  return { ...DEFAULT_CONFIG, ...(settings.backgroundNotify ?? {}) };
+  
+  // If settingsManager has it, use it
+  if (settings.backgroundNotify) {
+    return { ...DEFAULT_CONFIG, ...settings.backgroundNotify };
+  }
+  
+  // Otherwise, read directly from the settings file
+  try {
+    const settingsPath = path.join(os.homedir(), ".pi", "agent", "settings.json");
+    const content = require("fs").readFileSync(settingsPath, "utf8");
+    const fileSettings = JSON.parse(content);
+    if (fileSettings.backgroundNotify) {
+      return { ...DEFAULT_CONFIG, ...fileSettings.backgroundNotify };
+    }
+  } catch {
+    // File doesn't exist or can't be read, use defaults
+  }
+  
+  return DEFAULT_CONFIG;
 }
 
 function getEffective(state: SessionState, config: BackgroundNotifyConfig) {
@@ -320,42 +339,80 @@ function getEffective(state: SessionState, config: BackgroundNotifyConfig) {
   };
 }
 
+async function saveGlobalSettings(ctx: ExtensionContext, updates: Partial<BackgroundNotifyConfig>): Promise<void> {
+  try {
+    const settingsPath = path.join(os.homedir(), ".pi", "agent", "settings.json");
+    let settings: any = {};
+    
+    try {
+      const content = await fs.readFile(settingsPath, "utf8");
+      settings = JSON.parse(content);
+    } catch {
+      // File doesn't exist or invalid, start fresh
+    }
+
+    settings.backgroundNotify = {
+      ...settings.backgroundNotify,
+      ...updates,
+    };
+
+    await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), "utf8");
+  } catch (err) {
+    console.error("Failed to save settings:", err);
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Commands
 // ─────────────────────────────────────────────────────────────────────────────
 
 function registerCommands(pi: ExtensionAPI, state: SessionState) {
-  pi.registerCommand("notify", {
-    description: "Toggle background notifications (beep + focus)",
-    handler: async (_, ctx) => {
-      const config = getConfig(ctx);
-      const eff = getEffective(state, config);
-      const newState = !(eff.beep || eff.focus);
-
-      state.beepOverride = newState;
-      state.focusOverride = newState;
-
-      if (newState) {
-        ctx.ui.notify("🔔 Notifications ON (beep + focus)", "info");
-        await playBeep(eff.sound);
-      } else {
-        ctx.ui.notify("🔕 Notifications OFF", "warning");
-      }
-    },
-  });
-
   pi.registerCommand("notify-beep", {
-    description: "Toggle beep notification",
+    description: "Toggle beep notification (off if on, select sound if off)",
     handler: async (_, ctx) => {
       const config = getConfig(ctx);
       const current = state.beepOverride ?? config.beep;
-      state.beepOverride = !current;
 
-      if (state.beepOverride) {
-        ctx.ui.notify("🔊 Beep ON", "info");
-        await playBeep(state.beepSoundOverride ?? config.beepSound);
-      } else {
+      if (current) {
+        // Currently ON, turn OFF
+        state.beepOverride = false;
         ctx.ui.notify("🔇 Beep OFF", "warning");
+      } else {
+        // Currently OFF, let user select a sound
+        if (!ctx.hasUI || !IS_MACOS) {
+          // No UI or not macOS, just turn on with current sound
+          state.beepOverride = true;
+          ctx.ui.notify("🔊 Beep ON", "info");
+          await playBeep(state.beepSoundOverride ?? config.beepSound);
+          return;
+        }
+
+        const currentSound = state.beepSoundOverride ?? config.beepSound;
+        const options = [
+          "🔊 Use current sound",
+          "───",
+          ...BEEP_SOUNDS.map((s) => `🎵 ${s}${s === currentSound ? " ✓" : ""}`),
+          "───",
+          "❌ Cancel"
+        ];
+
+        const action = await ctx.ui.select(`Turn beep ON - Select sound (current: ${currentSound})`, options);
+        
+        if (!action || action === "❌ Cancel" || action === "───") {
+          return;
+        }
+
+        if (action === "🔊 Use current sound") {
+          state.beepOverride = true;
+          ctx.ui.notify(`🔊 Beep ON (${currentSound})`, "info");
+          await playBeep(currentSound);
+        } else if (action.startsWith("🎵 ")) {
+          const sound = action.replace("🎵 ", "").replace(" ✓", "");
+          state.beepOverride = true;
+          state.beepSoundOverride = sound;
+          ctx.ui.notify(`🔊 Beep ON (${sound})`, "info");
+          await playBeep(sound);
+        }
       }
     },
   });
@@ -371,81 +428,116 @@ function registerCommands(pi: ExtensionAPI, state: SessionState) {
     },
   });
 
+  pi.registerCommand("notify-threshold", {
+    description: "Set notification threshold (minimum task duration)",
+    handler: async (_, ctx) => {
+      const config = getConfig(ctx);
+
+      if (!ctx.hasUI) {
+        ctx.ui.notify(`Current threshold: ${config.thresholdMs}ms`, "info");
+        return;
+      }
+
+      const options = [
+        `1000ms (1s)${config.thresholdMs === 1000 ? " ✓" : ""}`,
+        `2000ms (2s)${config.thresholdMs === 2000 ? " ✓" : ""}`,
+        `3000ms (3s)${config.thresholdMs === 3000 ? " ✓" : ""}`,
+        `5000ms (5s)${config.thresholdMs === 5000 ? " ✓" : ""}`,
+        `10000ms (10s)${config.thresholdMs === 10000 ? " ✓" : ""}`,
+        "───",
+        "❌ Cancel"
+      ];
+
+      const action = await ctx.ui.select(`Threshold (current: ${config.thresholdMs}ms)`, options);
+      
+      if (!action || action === "❌ Cancel" || action === "───") {
+        return;
+      }
+
+      const match = action.match(/^(\d+)ms/);
+      if (match) {
+        const newThreshold = parseInt(match[1], 10);
+        await saveGlobalSettings(ctx, { thresholdMs: newThreshold });
+        ctx.ui.notify(`⏱️  Threshold set to ${newThreshold}ms`, "info");
+      }
+    },
+  });
+
   pi.registerCommand("notify-status", {
     description: "Show notification settings",
     handler: async (_, ctx) => {
       const config = getConfig(ctx);
       const eff = getEffective(state, config);
 
-      ctx.ui.notify("─── Background Notify ───", "info");
-      ctx.ui.notify(`Beep: ${eff.beep ? "🔊 ON" : "🔇 OFF"}  │  Focus: ${eff.focus ? "🪟 ON" : "⬜ OFF"}  │  Sound: ${eff.sound}`, "info");
-      ctx.ui.notify(`Threshold: ${config.thresholdMs}ms  │  Terminal: ${state.terminalApp ?? "(unknown)"}`, "info");
+      const beepIcon = eff.beep ? "🔊" : "🔇";
+      const focusIcon = eff.focus ? "🪟" : "⬜";
+      
+      const globalBeepIcon = config.beep ? "🔊" : "🔇";
+      const globalFocusIcon = config.bringToFront ? "🪟" : "⬜";
+
+      const hasOverrides = state.beepOverride !== null || state.focusOverride !== null || state.beepSoundOverride !== null;
+
+      const status = [
+        "╭─ Background Notify Status ─╮",
+        "",
+        "Current (Effective):",
+        `  ${beepIcon} Beep: ${eff.beep ? "ON" : "OFF"}`,
+        `  ${focusIcon} Focus: ${eff.focus ? "ON" : "OFF"}`,
+        `  🎵 Sound: ${eff.sound}`,
+        `  ⏱️  Threshold: ${config.thresholdMs}ms`,
+        "",
+        "Global Defaults:",
+        `  ${globalBeepIcon} Beep: ${config.beep ? "ON" : "OFF"}`,
+        `  ${globalFocusIcon} Focus: ${config.bringToFront ? "ON" : "OFF"}`,
+        `  🎵 Sound: ${config.beepSound}`,
+        `  ⏱️  Threshold: ${config.thresholdMs}ms`,
+      ];
+
+      if (hasOverrides) {
+        status.push("");
+        status.push("Session Overrides:");
+        if (state.beepOverride !== null) {
+          status.push(`  ${state.beepOverride ? "🔊" : "🔇"} Beep: ${state.beepOverride ? "ON" : "OFF"}`);
+        }
+        if (state.focusOverride !== null) {
+          status.push(`  ${state.focusOverride ? "🪟" : "⬜"} Focus: ${state.focusOverride ? "ON" : "OFF"}`);
+        }
+        if (state.beepSoundOverride !== null) {
+          status.push(`  🎵 Sound: ${state.beepSoundOverride}`);
+        }
+      }
+
+      status.push("");
+      status.push(`💻 Terminal: ${state.terminalApp ?? "(unknown)"}`);
+      status.push("╰────────────────────────────╯");
+      
+      ctx.ui.notify(status.join("\n"), "info");
     },
   });
 
-  pi.registerCommand("notify-test", {
-    description: "Test notification after 3 seconds",
+  pi.registerCommand("notify-save-global", {
+    description: "Save current settings as global defaults",
     handler: async (_, ctx) => {
       const config = getConfig(ctx);
       const eff = getEffective(state, config);
 
-      ctx.ui.notify("🧪 Testing in 3s... switch apps to see it!", "info");
-      await new Promise((r) => setTimeout(r, TEST_DELAY_MS));
+      await saveGlobalSettings(ctx, {
+        beep: eff.beep,
+        bringToFront: eff.focus,
+        beepSound: eff.sound,
+        thresholdMs: config.thresholdMs,
+      });
 
-      const triggered: string[] = [];
-      if (eff.beep) {
-        await playBeep(eff.sound);
-        triggered.push("beep");
-      }
-      if (eff.focus) {
-        await bringTerminalToFront(state);
-        triggered.push("focus");
-      }
-
-      ctx.ui.notify(
-        triggered.length > 0
-          ? `✅ Test complete: ${triggered.join(" + ")}`
-          : "⚠️ Both beep and focus disabled",
-        triggered.length > 0 ? "info" : "warning"
-      );
-    },
-  });
-
-  pi.registerCommand("notify-config", {
-    description: "Configure notification settings",
-    handler: async (_, ctx) => {
-      const config = getConfig(ctx);
-      const eff = getEffective(state, config);
-
-      ctx.ui.notify("─── Notify Config ───", "info");
-      ctx.ui.notify(`Beep: ${eff.beep ? "ON" : "OFF"}  │  Focus: ${eff.focus ? "ON" : "OFF"}  │  Sound: ${eff.sound}`, "info");
-
-      if (!ctx.hasUI) return;
-
-      const options = IS_MACOS
-        ? ["🔊 Test current beep", ...BEEP_SOUNDS.map((s) => `🎵 ${s}${s === eff.sound ? " ✓" : ""}`), "───", "🔄 Reset to defaults", "📋 Terminal info", "❌ Cancel"]
-        : ["🔄 Reset to defaults", "📋 Terminal info", "❌ Cancel"];
-
-      const action = await ctx.ui.select("Options", options);
-      if (!action || action === "❌ Cancel" || action === "───") return;
-
-      if (action === "🔊 Test current beep") {
-        ctx.ui.notify(`Playing ${eff.sound}...`, "info");
-        await playBeep(eff.sound);
-      } else if (action.startsWith("🎵 ")) {
-        const sound = action.replace("🎵 ", "").replace(" ✓", "");
-        ctx.ui.notify(`Playing ${sound}...`, "info");
-        await playBeep(sound);
-        state.beepSoundOverride = sound;
-        ctx.ui.notify(`Sound set to "${sound}"`, "info");
-      } else if (action === "🔄 Reset to defaults") {
-        state.beepOverride = null;
-        state.focusOverride = null;
-        state.beepSoundOverride = null;
-        ctx.ui.notify("✅ Reset to global defaults", "info");
-      } else if (action === "📋 Terminal info") {
-        ctx.ui.notify(`App: ${state.terminalApp ?? "(unknown)"}  │  PID: ${state.terminalPid ?? "?"}  │  TTY: ${state.terminalTTY ?? "?"}`, "info");
-      }
+      ctx.ui.notify("✅ Settings saved to ~/.pi/agent/settings.json", "info");
+      
+      const status = [
+        `  ${eff.beep ? "🔊" : "🔇"} Beep: ${eff.beep ? "ON" : "OFF"}`,
+        `  ${eff.focus ? "🪟" : "⬜"} Focus: ${eff.focus ? "ON" : "OFF"}`,
+        `  🎵 Sound: ${eff.sound}`,
+        `  ⏱️  Threshold: ${config.thresholdMs}ms`,
+      ].join("\n");
+      
+      ctx.ui.notify(status, "info");
     },
   });
 }
