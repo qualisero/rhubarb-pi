@@ -6,11 +6,11 @@ Use this checklist when preparing a new release.
 
 - [ ] All tests pass: `npm run verify`
 - [ ] TypeScript compiles: `npm run typecheck`
-- [ ] Hooks tested locally: `npm run install:all` + restart pi
+- [ ] Modules tested locally: `npm run install:all` + restart pi
 - [ ] Interactive commands tested: `/emoji`, `/notify`, etc.
 - [ ] Documentation updated:
   - [ ] README.md reflects new features
-  - [ ] Individual hook READMEs updated
+  - [ ] Individual module READMEs updated
   - [ ] CHANGELOG.md has entry for this version
   - [ ] All code comments are accurate
 - [ ] Version numbers consistent:
@@ -29,9 +29,9 @@ Follow [Semantic Versioning](https://semver.org/):
 - **PATCH** (0.0.X): Bug fixes, backward compatible
 
 Examples:
-- `1.0.0` → `1.1.0`: Added new hook
-- `1.1.0` → `1.1.1`: Fixed bug in existing hook
-- `1.1.0` → `2.0.0`: Changed hook API (breaking)
+- `1.0.0` → `1.1.0`: Added new module (hook or extension)
+- `1.1.0` → `1.1.1`: Fixed bug in an existing module
+- `1.1.0` → `2.0.0`: Changed module API in a breaking way
 
 ## Release Steps
 

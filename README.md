@@ -102,6 +102,18 @@ npm run install:safe-rm
 
 **Restart pi** after installing for modules to load.
 
+## Documentation & Support
+
+| Topic | Location |
+|-------|----------|
+| Installation guide | [docs/INSTALL.md](docs/INSTALL.md) |
+| Module overview | [docs/SUMMARY.md](docs/SUMMARY.md) |
+| Release checklist | [docs/RELEASE.md](docs/RELEASE.md) |
+| Troubleshooting tips | [docs/troubleshooting.md](docs/troubleshooting.md) |
+| Contributing guide | [CONTRIBUTING.md](CONTRIBUTING.md) |
+
+Have questions or ideas? [Open an issue](https://github.com/qualisero/rhubarb-pi/issues) or submit a PR.
+
 ## Testing
 
 ```bash
