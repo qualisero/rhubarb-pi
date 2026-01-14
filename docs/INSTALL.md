@@ -12,7 +12,7 @@ From the root of the repository:
 npm run install:all
 ```
 
-This chains through every available hook (background-notify, session-emoji, session-color) and extension (safe-git, safe-rm), dropping them into the appropriate pi directories under `~/.pi/agent/`.
+This chains through every available hook (background-notify, session-emoji, session-color) and extension (safe-git), dropping them into the appropriate pi directories under `~/.pi/agent/`.
 
 ### Install Individual Modules
 
@@ -24,7 +24,6 @@ npm run install:session-color
 
 # Extensions
 npm run install:safe-git
-npm run install:safe-rm
 ```
 
 ### Alternative: Use the Shell Script
@@ -90,7 +89,6 @@ See each README for configuration details:
 - [Session Emoji](../hooks/session-emoji/README.md#configuration)
 - [Session Color](./session-color.md#configuration)
 - [Safe Git](./safe-git.md#configuration)
-- [Safe RM](../extensions/safe-rm/README.md#configuration)
 
 ## Testing
 
@@ -100,9 +98,6 @@ Use the targeted npm scripts:
 # TypeScript + project checks
 npm run typecheck
 npm run verify
-
-# Safe RM focused tests
-npm run test:safe-rm
 ```
 
 Hook-specific manual testing is available inside each module directory (e.g., `hooks/background-notify/test.sh`).
@@ -158,7 +153,6 @@ npm run uninstall:background-notify
 npm run uninstall:session-emoji
 npm run uninstall:session-color
 npm run uninstall:safe-git
-npm run uninstall:safe-rm
 ```
 
 ### Alternative: Shell Script

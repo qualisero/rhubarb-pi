@@ -39,11 +39,6 @@ Gates risky git + gh commands behind explicit approval prompts.
 
 [Read more →](../docs/safe-git.md)
 
-### 🗑️ Safe RM (extension)
-Intercepts `rm` commands and moves deleted files to the macOS trash.
-
-[Read more →](../extensions/safe-rm/README.md)
-
 ## Quick Start
 
 ```bash
@@ -55,7 +50,6 @@ npm run install:background-notify
 npm run install:session-emoji
 npm run install:session-color
 npm run install:safe-git
-npm run install:safe-rm
 ```
 
 Configure in `~/.pi/agent/settings.json` (or project-local `.pi/settings.json`), then **restart pi**:
@@ -100,18 +94,12 @@ Configure in `~/.pi/agent/settings.json` (or project-local `.pi/settings.json`),
 rhubarb-pi/
 ├── README.md                    # Main overview and quick start
 ├── extensions/
-│   └── safe-rm/, safe-git/      # Extension implementations
+│   └── safe-git/               # Extension implementations
 ├── hooks/
 │   └── background-notify/, ...  # Hook implementations
 └── docs/
     ├── INSTALL.md               # Installation guide
     ├── SUMMARY.md               # This file
-    ├── RELEASE.md               # Release checklist
-    └── ...
-```
-
-## Use Cases
-
 ### Background Notify
 - Long builds/tests → know the instant they finish
 - Research/analysis tasks → terminal jumps forward when complete
@@ -120,8 +108,7 @@ rhubarb-pi/
 - Visual identity per session when juggling multiple terminals
 - Quick cognitive cue for which environment you’re in
 
-### Safe Git / Safe RM
-- Prevent accidental force pushes, rebases, or deletes
+### Safe Git
 - Recover deleted files from the trash instead of panic
 
 ## Platform Support
