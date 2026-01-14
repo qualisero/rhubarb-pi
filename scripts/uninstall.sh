@@ -1,5 +1,5 @@
 #!/bin/bash
-# Universal hook uninstaller for pi-hooks
+# Universal hook uninstaller for Rhubarb Pi
 
 set -e
 
@@ -42,6 +42,7 @@ if [ "$#" -eq 0 ]; then
     echo "Uninstalling all hooks..."
     uninstall_hook "background-notify"
     uninstall_hook "session-emoji"
+    uninstall_hook "session-color"
 else
     # Uninstall specific hooks
     for hook_name in "$@"; do

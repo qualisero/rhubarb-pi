@@ -298,7 +298,7 @@ Session start → ⏳ (emoji in 3 messages)
 ### New Structure
 
 ```
-pi-hooks/
+rhubarb-pi/
 ├── README.md                          # Main overview
 ├── package.json                       # Root package with install scripts
 ├── hooks/

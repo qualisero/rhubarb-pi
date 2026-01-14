@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Release Script for dave-pi-hooks"
+echo "🚀 Release Script for Rhubarb Pi"
 echo ""
 
 # Check if VERSION argument provided
