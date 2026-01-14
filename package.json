@@ -20,23 +20,27 @@
   "homepage": "https://github.com/qualisero/rhubarb-pi#readme",
   "scripts": {
     "install:all": "npm run install:all-extensions",
-    "install:all-extensions": "npm run install:background-notify && npm run install:session-emoji && npm run install:session-color && npm run install:safe-git",
+    "install:all-extensions": "npm run install:background-notify && npm run install:session-emoji && npm run install:session-color && npm run install:safe-git && npm run install:safe-rm",
     "install:background-notify": "cd hooks/background-notify && npm run install:global",
     "install:session-emoji": "cd hooks/session-emoji && npm run install:global",
     "install:session-color": "cd hooks/session-color && npm run install:global",
     "install:safe-git": "cd extensions/safe-git && npm run install:global",
+    "install:safe-rm": "cd extensions/safe-rm && npm run install:global",
     "uninstall:all": "npm run uninstall:all-extensions",
-    "uninstall:all-extensions": "npm run uninstall:background-notify && npm run uninstall:session-emoji && npm run uninstall:session-color && npm run uninstall:safe-git",
+    "uninstall:all-extensions": "npm run uninstall:background-notify && npm run uninstall:session-emoji && npm run uninstall:session-color && npm run uninstall:safe-git && npm run uninstall:safe-rm",
     "uninstall:background-notify": "cd hooks/background-notify && npm run uninstall:global",
     "uninstall:session-emoji": "cd hooks/session-emoji && npm run uninstall:global",
     "uninstall:session-color": "cd hooks/session-color && npm run uninstall:global",
     "uninstall:safe-git": "cd extensions/safe-git && npm run uninstall:global",
+    "uninstall:safe-rm": "cd extensions/safe-rm && npm run uninstall:global",
     "typecheck": "tsc --noEmit",
+    "docs:check": "rg 'pi-hooks|dave-pi-hooks' . --glob='!node_modules/**' --glob='!.git/**' && echo '⚠ Found outdated naming references' || echo '✓ No outdated references'",
     "verify": "./verify.sh",
     "test": "vitest run",
     "test:e2e": "vitest run --config vitest.config.ts",
     "test:e2e:watch": "vitest --config vitest.config.ts",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:safe-rm": "vitest run extensions/safe-rm/test/safe-rm.test.ts"
   },
   "engines": {
     "node": ">=20.0.0"

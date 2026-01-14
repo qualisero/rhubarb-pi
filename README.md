@@ -6,13 +6,13 @@ A collection of extensions for the [pi coding agent](https://github.com/badlogic
 
 ## Extensions
 
-| Extension | Description | Install |
-|-----------|-------------|---------|
-| [🔔 background-notify](#-background-notify) | Notifications when tasks complete | `npm run install:background-notify` |
-| [🎨 session-emoji](#-session-emoji) | AI-powered emoji in footer | `npm run install:session-emoji` |
-| [🌈 session-color](#-session-color) | Colored band to distinguish sessions | `npm run install:session-color` |
-| [🔒 safe-git](#-safe-git) | Approval for git operations | `npm run install:safe-git` |
-| [🗑️ safe-rm](#-safe-rm) | Moves rm'd files to macOS trash | `npm run install:safe-rm` |
+| Module       | Type        | Install Command          | Config Key        |
+|--------------|-------------|--------------------------|-------------------|
+| background-notify | hook    | `npm run install:background-notify` | `backgroundNotify` |
+| session-emoji | hook       | `npm run install:session-emoji` | `sessionEmoji` |
+| session-color | hook       | `npm run install:session-color` | `sessionColor` |
+| safe-git     | extension  | `npm run install:safe-git` | `safeGit` |
+| safe-rm      | extension  | `npm run install:safe-rm` | `safeRm` |
 
 ---
 
@@ -100,7 +100,7 @@ npm run install:safe-git
 npm run install:safe-rm
 ```
 
-**Restart pi** after installing for extensions to load.
+**Restart pi** after installing for modules to load.
 
 ## Documentation & Support
 
