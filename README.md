@@ -6,12 +6,13 @@ A collection of extensions for the [pi coding agent](https://github.com/badlogic
 
 ## Extensions
 
-| Extension | Description | Install |
-|-----------|-------------|---------|
-| [🔔 background-notify](#-background-notify) | Notifications when tasks complete | `npm run install:background-notify` |
-| [🎨 session-emoji](#-session-emoji) | AI-powered emoji in footer | `npm run install:session-emoji` |
-| [🌈 session-color](#-session-color) | Colored band to distinguish sessions | `npm run install:session-color` |
-| [🔒 safe-git](#-safe-git) | Approval for git operations | `npm run install:safe-git` |
+| Module       | Type        | Install Command          | Config Key        |
+|--------------|-------------|--------------------------|-------------------|
+| background-notify | hook    | `npm run install:background-notify` | `backgroundNotify` |
+| session-emoji | hook       | `npm run install:session-emoji` | `sessionEmoji` |
+| session-color | hook       | `npm run install:session-color` | `sessionColor` |
+| safe-git     | extension  | `npm run install:safe-git` | `safeGit` |
+| safe-rm      | extension  | `npm run install:safe-rm` | `safeRm` |
 
 ---
 
@@ -71,6 +72,20 @@ npm run install:safe-git
 
 ---
 
+### 🗑️ safe-rm
+
+Intercepts `rm` commands and moves files to macOS trash instead of permanently deleting them. Uses AppleScript for native trash handling, supports glob patterns, recursive deletions, and multiple files.
+
+**Commands:** `/saferm`, `/saferm-behavior`, `/saferm-status`, `/saferm-applescript`, `/saferm-dryrun`
+
+```bash
+npm run install:safe-rm
+```
+
+[📖 Documentation](extensions/safe-rm/README.md)
+
+---
+
 ## Quick Start
 
 ```bash
@@ -82,9 +97,10 @@ npm run install:background-notify
 npm run install:session-emoji
 npm run install:session-color
 npm run install:safe-git
+npm run install:safe-rm
 ```
 
-**Restart pi** after installing for extensions to load.
+**Restart pi** after installing for modules to load.
 
 ## Testing
 
