@@ -1,129 +1,148 @@
-# pi-hooks
+# Rhubarb Pi
 
-> 🪝 A collection of useful hooks for the pi coding agent
+> 🥧 A bundle of pi coding agent upgrades: background automation, safety rails, and session polish
 
-## What Are These Hooks?
+## What’s Inside?
 
-Hooks that enhance your pi coding experience with notifications, session personalization, and workflow automation.
+Rhubarb Pi ships both **extensions** (drop into `~/.pi/agent/extensions`) and **hooks** (installed via `~/.pi/agent/hooks`). Together they add notifications, personalization, and safer workflows to pi.
 
-## Available Hooks
-### 🔔 Background Notify
+## Available Modules
 
+### 🔔 Background Notify (hook)
 Detects long-running tasks and brings your terminal to focus when they complete.
 
-**Features:**
-- ⏱️ Detects tasks taking longer than your threshold (default: 5 seconds)
-- 🔍 Checks if your terminal is in the background
-- 🔔 Beeps to get your attention
-- 🪟 Brings the terminal window to the front automatically
-- 💬 Shows a completion notification in pi
+**Highlights**
+- ⏱️ Threshold-based detection (default 5s)
+- 🔍 Background terminal detection
+- 🔔 Audio alerts + 🪟 bring-to-front
+- 💬 Completion notification in pi
 
 [Read more →](../hooks/background-notify/README.md)
 
-### 🎨 Session Emoji
+### 🎨 Session Emoji (hook)
+Shows a delightful emoji in pi’s footer before your working directory path.
 
-Display a random emoji in the pi footer before your current working directory path.
-
-**Features:**
-- 🎯 Multiple emoji sets (default, animals, tech, fun)
-- 🎨 Custom emoji support
-- 🔒 Session-persistent emoji
-- 👁️ Always visible in footer
-- ⚙️ Easy to configure
+**Highlights**
+- 🤖 AI-aware emoji selection with 24h uniqueness
+- 🎯 Multiple preset sets + custom lists
+- 🔒 Session persistence with `/emoji-history`
 
 [Read more →](../hooks/session-emoji/README.md)
+
+### 🌈 Session Color (hook)
+Adds a colored footer band so concurrent sessions are easy to tell apart.
+
+[Read more →](./session-color.md)
+
+### 🔒 Safe Git (extension)
+Gates risky git + gh commands behind explicit approval prompts.
+
+[Read more →](../docs/safe-git.md)
+
+### 🗑️ Safe RM (extension)
+Intercepts `rm` commands and moves deleted files to the macOS trash.
+
+[Read more →](../extensions/safe-rm/README.md)
 
 ## Quick Start
 
 ```bash
-# Install all hooks
+# Install everything
 npm run install:all
 
-# Configure in ~/.pi/agent/settings.json
+# Or pick individual modules
+npm run install:background-notify
+npm run install:session-emoji
+npm run install:session-color
+npm run install:safe-git
+npm run install:safe-rm
+```
+
+Configure in `~/.pi/agent/settings.json` (or project-local `.pi/settings.json`), then **restart pi**:
+
+```json
 {
   "backgroundNotify": {
     "enabled": true,
-    "thresholdMs": 5000,
-    "beep": true,
-    "bringToFront": true
+    "thresholdMs": 5000
   },
   "sessionEmoji": {
     "enabled": true,
     "emojiSet": "default"
+  },
+  "sessionColor": {
+    "enabledByDefault": true
+  },
+  "safeGit": {
+    "enabledByDefault": true,
+    "promptLevel": "medium"
   }
 }
-
-# Restart pi
 ```
 
-## Key Features
+## Project Highlights
 
-- ✅ **Easy Installation**: Simple npm scripts for all hooks
-- ✅ **Configurable**: Control each hook independently
-- ✅ **Non-Invasive**: Fail silently, never break pi functionality
-- ✅ **Fast**: Negligible overhead
-- ✅ **Modular**: Install only the hooks you want
+- ✅ **One-line installs** via npm scripts or shell helpers
+- ✅ **Configurable**: toggle each hook/extension independently
+- ✅ **Non-invasive**: modules fail gracefully if prerequisites are missing
+- ✅ **Fast**: negligible runtime overhead
+- ✅ **Modular**: mix-and-match what your workflow needs
 
 ## Requirements
 
-- macOS (some features), Linux (partial support), or Windows (partial support)
-- pi coding agent installed
-- Node.js (for npm scripts)
+- pi coding agent v0.36.0+
+- Node.js 20+
+- macOS (full feature set), Linux/Windows partial support where noted
 
-## Documentation Structure
+## Repo Layout
 
 ```
-pi-hooks/
+rhubarb-pi/
 ├── README.md                    # Main overview and quick start
+├── extensions/
+│   └── safe-rm/, safe-git/      # Extension implementations
 ├── hooks/
-│   ├── background-notify/       # Background notification hook
-│   │   ├── README.md           # Hook-specific documentation
-│   │   ├── index.ts            # Hook implementation
-│   │   └── ...
-│   └── session-emoji/          # Session emoji hook
-│       ├── README.md           # Hook-specific documentation
-│       ├── index.ts            # Hook implementation
-│       └── ...
+│   └── background-notify/, ...  # Hook implementations
 └── docs/
-    ├── INSTALL.md              # Installation guide
-    ├── EXAMPLES.md             # Configuration examples
-    ├── ARCHITECTURE.md         # Technical architecture
-    └── SUMMARY.md              # This file
+    ├── INSTALL.md               # Installation guide
+    ├── SUMMARY.md               # This file
+    ├── RELEASE.md               # Release checklist
+    └── ...
 ```
 
 ## Use Cases
 
 ### Background Notify
-- **Long Builds**: Get notified when compilation finishes
-- **Test Suites**: Return to terminal when tests complete
-- **Code Generation**: Alert when large refactoring finishes
-- **Research Tasks**: Know when analysis completes
+- Long builds/tests → know the instant they finish
+- Research/analysis tasks → terminal jumps forward when complete
 
-### Session Emoji
-- **Visual Identity**: Each session has its own emoji in the footer
-- **Project Identification**: Quickly identify which session you're in
-- **Fun Factor**: Add personality to your coding sessions
-- **Team Spirit**: Share emoji configurations with your team
+### Session Emoji/Color
+- Visual identity per session when juggling multiple terminals
+- Quick cognitive cue for which environment you’re in
+
+### Safe Git / Safe RM
+- Prevent accidental force pushes, rebases, or deletes
+- Recover deleted files from the trash instead of panic
 
 ## Platform Support
 
 | Platform | Detection | Beep | Bring to Front |
 |----------|-----------|------|----------------|
-| macOS | ✅ | ✅ | ✅ |
-| Linux | 🚧 | ✅ | 🚧 |
-| Windows | 🚧 | ✅ | 🚧 |
+| macOS    | ✅        | ✅   | ✅             |
+| Linux    | 🚧        | ✅   | 🚧             |
+| Windows  | 🚧        | ✅   | 🚧             |
 
 ## Contributing
 
-PRs welcome! To add a new hook:
+PRs welcome! To add a new module:
 
-1. Create a new directory in `hooks/`
-2. Add `index.ts`, `README.md`, `package.json`, and `example-settings.json`
-3. Add install/uninstall scripts to root `package.json`
-4. Update main README with your hook
-5. Add examples to `docs/EXAMPLES.md`
+1. Create `hooks/<name>/` or `extensions/<name>/`
+2. Add `index.ts`, `README.md`, and install/uninstall scripts
+3. Wire scripts into root `package.json`
+4. Update README + docs to surface the new module
+5. Add examples/tests as needed
 
-See existing hooks for structure and patterns.
+See existing modules for structure and patterns.
 
 ## License
 

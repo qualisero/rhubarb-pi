@@ -1,5 +1,5 @@
 #!/bin/bash
-# Universal hook installer for pi-hooks
+# Universal hook installer for Rhubarb Pi
 
 set -e
 

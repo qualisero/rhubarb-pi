@@ -1,62 +1,65 @@
-# Pi Hooks Installation Guide
+# Rhubarb Pi Installation Guide
 
-Installation instructions for pi coding agent hooks.
+Installation instructions for Rhubarb Pi hooks and extensions.
 
 ## Quick Install
 
-### Install All Hooks
+### Install Everything
 
-From the root of the pi-hooks repository:
+From the root of the repository:
 
 ```bash
 npm run install:all
 ```
 
-This installs all available hooks to `~/.pi/agent/hooks/` where they will be auto-discovered.
+This chains through every available hook (background-notify, session-emoji, session-color) and extension (safe-git, safe-rm), dropping them into the appropriate pi directories under `~/.pi/agent/`.
 
-### Install Individual Hooks
+### Install Individual Modules
 
 ```bash
-# Background Notify
+# Hooks
 npm run install:background-notify
-
-# Session Emoji
 npm run install:session-emoji
+npm run install:session-color
+
+# Extensions
+npm run install:safe-git
+npm run install:safe-rm
 ```
 
-### Alternative: Use Install Script
+### Alternative: Use the Shell Script
 
 ```bash
-# Install all hooks
+# Install all modules
 ./scripts/install.sh
 
-# Install specific hooks
-./scripts/install.sh background-notify
-./scripts/install.sh session-emoji
+# Install a subset
+./scripts/install.sh background-notify session-emoji safe-git
 ```
+
+The script understands every module name listed in `package.json` install/uninstall scripts.
 
 ### Project-Local Installation
 
-To install a hook for only the current project:
+To scope a hook or extension to the current project only:
 
 ```bash
 cd hooks/background-notify
 npm run install:project
 
-# Or for session-emoji
-cd hooks/session-emoji
+cd ../../extensions/safe-git
 npm run install:project
 ```
 
-This copies the hook to `.pi/hooks/<hook-name>.ts` in your project directory.
+This copies the module into `.pi/hooks/<name>.ts` or `.pi/extensions/<name>.ts` inside your repo so it loads only when you’re working here.
 
 ### Important: Restart Required
 
-After installing any hook, you **must restart pi** for it to be loaded. Hooks are discovered at startup.
+After installing or uninstalling anything, **restart pi** so it reloads the new hooks/extensions. pi only discovers them at startup.
 
 ## Configuration
 
-Each hook has its own configuration section in `~/.pi/agent/settings.json` or `.pi/settings.json` (project-local).
+Each module reads its own section from `~/.pi/agent/settings.json` or project-local `.pi/settings.json`.
 
 ### Example Combined Configuration
 
@@ -71,135 +74,112 @@ Each hook has its own configuration section in `~/.pi/agent/settings.json` or `.
   "sessionEmoji": {
     "enabled": true,
     "emojiSet": "default"
+  },
+  "sessionColor": {
+    "enabledByDefault": true
+  },
+  "safeGit": {
+    "enabledByDefault": true,
+    "promptLevel": "medium"
   }
 }
 ```
 
-See each hook's README for detailed configuration options:
-- [Background Notify Configuration](../hooks/background-notify/README.md#configuration)
-- [Session Emoji Configuration](../hooks/session-emoji/README.md#configuration)
+See each README for configuration details:
+- [Background Notify](../hooks/background-notify/README.md#configuration)
+- [Session Emoji](../hooks/session-emoji/README.md#configuration)
+- [Session Color](./session-color.md#configuration)
+- [Safe Git](./safe-git.md#configuration)
+- [Safe RM](../extensions/safe-rm/README.md#configuration)
 
 ## Testing
 
-Test individual hooks:
+Use the targeted npm scripts:
 
 ```bash
-# Test background-notify
-npm run test:background-notify
+# TypeScript + project checks
+npm run typecheck
+npm run verify
 
-# Test session-emoji
-npm run test:session-emoji
+# Safe RM focused tests
+npm run test:safe-rm
 ```
 
-Or manually test from each hook directory:
-
-```bash
-cd hooks/background-notify
-./test.sh
-
-cd ../session-emoji
-./test.sh
-```
+Hook-specific manual testing is available inside each module directory (e.g., `hooks/background-notify/test.sh`).
 
 ## Troubleshooting
 
-### Hook not loading
+### Module Not Loading
 
-**Problem:** No output or behavior from installed hook
+**Problem:** No output or behavior from an installed module
 
 **Solutions:**
-1. Verify hook file exists:
+1. Verify file exists:
    ```bash
-   ls -l ~/.pi/agent/hooks/*.ts
+   ls -l ~/.pi/agent/hooks/*.ts ~/.pi/agent/extensions/*.ts
    ```
-2. Check settings file exists and is valid JSON:
+2. Validate settings JSON:
    ```bash
    cat ~/.pi/agent/settings.json | python -m json.tool
    ```
 3. Restart pi completely
-4. Check for `"enabled": false` in configuration
+4. Ensure `"enabled"` or `"enabledByDefault"` isn’t false in configuration
 
-### Multiple hooks conflict
+### Conflicting Copies
 
-**Problem:** Hooks interfere with each other
+Modules can be installed globally and project-locally. Remove duplicates if behavior seems inconsistent (`rm ~/.pi/agent/hooks/<name>.ts` vs `.pi/hooks/<name>.ts`). Project-local copies take priority.
 
-**Solutions:**
-- Each hook is independent and should not conflict
-- Check each hook's `enabled` setting
-- Review configuration for typos or invalid values
+### Settings Not Taking Effect
 
-### Settings not taking effect
+1. Confirm JSON syntax
+2. Restart pi (settings cache)
+3. Check for session overrides (commands like `/notify` or `/emoji`) masking global defaults
 
-**Problem:** Changes to settings.json don't apply
+### Permission Issues
 
-**Solutions:**
-1. Verify JSON syntax is valid
-2. Restart pi after changes
-3. Check for project-local settings overriding global ones
-
-### Permission issues
-
-**Problem:** Cannot create hooks directory
-
-**Solutions:**
 ```bash
-# Manually create directory
-mkdir -p ~/.pi/agent/hooks
-chmod 755 ~/.pi/agent/hooks
-
-# Then try installation again
-npm run install:all
+mkdir -p ~/.pi/agent/{hooks,extensions}
+chmod 755 ~/.pi/agent/{hooks,extensions}
 ```
+Then rerun the installer.
 
 ## Uninstalling
 
-### Uninstall All Hooks
+### Remove Everything
 
 ```bash
 npm run uninstall:all
 ```
 
-### Uninstall Individual Hooks
+### Remove Individual Modules
 
 ```bash
 npm run uninstall:background-notify
 npm run uninstall:session-emoji
+npm run uninstall:session-color
+npm run uninstall:safe-git
+npm run uninstall:safe-rm
 ```
 
-### Alternative: Use Uninstall Script
+### Alternative: Shell Script
 
 ```bash
-# Uninstall all hooks
-./scripts/uninstall.sh
-
-# Uninstall specific hooks
-./scripts/uninstall.sh background-notify
-./scripts/uninstall.sh session-emoji
+./scripts/uninstall.sh background-notify safe-git
 ```
 
-### Manual Uninstallation
+### Manual Removal
 
-Remove hook files:
+Delete the installed files:
 
 ```bash
 rm ~/.pi/agent/hooks/background-notify.ts
-rm ~/.pi/agent/hooks/session-emoji.ts
+rm ~/.pi/agent/extensions/safe-git.ts
 ```
 
-Remove configuration from `~/.pi/agent/settings.json`:
-
-```json
-{
-  "backgroundNotify": { ... },  // Delete this
-  "sessionEmoji": { ... }       // Delete this
-}
-```
-
-Then restart pi.
+Then remove their configuration blocks from `settings.json` and restart pi.
 
 ## Next Steps
 
-- Read individual hook documentation for detailed features
-- See [EXAMPLES.md](EXAMPLES.md) for configuration recipes
-- Check [ARCHITECTURE.md](ARCHITECTURE.md) for technical details
-- Review [SUMMARY.md](SUMMARY.md) for project overview
+- Read each module’s README for feature deep-dives
+- See [SUMMARY.md](SUMMARY.md) for a project-wide overview
+- Consult [RELEASE.md](RELEASE.md) before publishing a new version
