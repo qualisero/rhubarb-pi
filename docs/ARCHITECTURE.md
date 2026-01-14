@@ -46,7 +46,6 @@ export interface Extension {
 
 **Available extensions:**
 - `safe-git` - Intercepts git/gh commands requiring approval
-- `safe-rm` - Intercepts `rm` commands to redirect to trash
 
 ## Installation Locations
 
@@ -118,8 +117,7 @@ rhubarb-pi/
 │   ├── session-emoji/
 │   └── session-color/
 ├── extensions/               # Extension implementations
-│   ├── safe-git/
-│   └── safe-rm/
+│   └── safe-git/
 ├── scripts/
 │   ├── install.sh           # Unified installer
 │   ├── uninstall.sh         # Unified uninstaller
