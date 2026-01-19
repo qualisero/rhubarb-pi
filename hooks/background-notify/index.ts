@@ -209,7 +209,7 @@ export default function (pi: ExtensionAPI) {
 
     if (eff.beep) {
       tasks.push(playBeep(eff.sound));
-      actions.push(NotificationAction.Beeded);
+      actions.push(NotificationAction.Beeped);
     }
     if (eff.focus) {
       tasks.push(bringTerminalToFront(state));
