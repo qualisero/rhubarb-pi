@@ -19,3 +19,9 @@ test-results/
 
 # SCIP index
 .scip/
+
+# Agent docs
+AGENT_DOCS/
+
+# Ralph loop state
+.ralph/

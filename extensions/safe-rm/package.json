@@ -1,0 +1,19 @@
+{
+  "name": "@rhubarb-pi/safe-rm",
+  "version": "1.0.0",
+  "description": "Safe-rm extension that replaces rm with macOS trash command",
+  "main": "index.ts",
+  "scripts": {
+    "install:global": "mkdir -p ~/.pi/agent/extensions && cp index.ts ~/.pi/agent/extensions/safe-rm.ts && echo 'Installed safe-rm to ~/.pi/agent/extensions/safe-rm.ts'",
+    "uninstall:global": "rm -f ~/.pi/agent/extensions/safe-rm.ts && echo 'Uninstalled safe-rm from ~/.pi/agent/extensions/'"
+  },
+  "keywords": [
+    "pi",
+    "extension",
+    "rm",
+    "trash",
+    "safety",
+    "macos"
+  ],
+  "license": "MIT"
+}
