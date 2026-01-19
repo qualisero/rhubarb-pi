@@ -9,7 +9,9 @@
  *     "thresholdMs": 2000,
  *     "beep": true,
  *     "beepSound": "Tink",
- *     "bringToFront": true
+ *     "bringToFront": true,
+ *     "say": false,
+ *     "sayMessage": "Task completed"
  *   }
  * }
  */
@@ -32,12 +34,16 @@ interface BackgroundNotifyConfig {
   beep: boolean;
   beepSound: string;
   bringToFront: boolean;
+  say: boolean;
+  sayMessage: string;
 }
 
 interface SessionState {
   beepOverride: boolean | null;
   beepSoundOverride: string | null;
   focusOverride: boolean | null;
+  sayOverride: boolean | null;
+  sayMessageOverride: string | null;
   terminalApp: string | undefined;
   terminalPid: number | undefined;
   terminalTTY: string | undefined;
@@ -50,14 +56,30 @@ const DEFAULT_CONFIG: BackgroundNotifyConfig = {
   beep: true,
   beepSound: "Tink",
   bringToFront: true,
+  say: false,
+  sayMessage: "Task completed",
 };
 
 const IS_MACOS = process.platform === "darwin";
+let HAS_SAY_COMMAND = false;
 
 const BEEP_SOUNDS = [
   "Tink", "Basso", "Blow", "Bottle", "Frog", "Funk",
   "Glass", "Hero", "Morse", "Ping", "Pop", "Purr",
   "Sosumi", "Submarine",
+];
+
+const SAY_MESSAGES = [
+  "Task completed",
+  "Done",
+  "Finished",
+  "Ready",
+  "All done",
+  "Complete",
+  "Task completed in {dirname}",
+  "Done in {dirname}",
+  "Finished in {dirname}",
+  "All done in {dirname}",
 ];
 
 const TERMINAL_BUNDLE_IDS: Record<string, string> = {
@@ -73,7 +95,54 @@ const TERMINAL_BUNDLE_IDS: Record<string, string> = {
   "Ghostty": "Ghostty",
 };
 
-const TEST_DELAY_MS = 3000;
+enum NotificationAction {
+  Beeped = "beeped",
+  Spoke = "spoke",
+  BroughtToFront = "brought to front",
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper Functions
+// ─────────────────────────────────────────────────────────────────────────────
+
+function isSayAvailable(): boolean {
+  return HAS_SAY_COMMAND;
+}
+
+function resetSessionState(state: SessionState): void {
+  state.beepOverride = null;
+  state.beepSoundOverride = null;
+  state.focusOverride = null;
+  state.sayOverride = null;
+  state.sayMessageOverride = null;
+  state.lastToolTime = undefined;
+  state.totalActiveTime = 0;
+}
+
+async function readSettingsFile(): Promise<any> {
+  const settingsPath = path.join(os.homedir(), ".pi", "agent", "settings.json");
+  try {
+    const content = await fs.readFile(settingsPath, "utf8");
+    return JSON.parse(content);
+  } catch {
+    return {};
+  }
+}
+
+async function writeSettingsFile(settings: any): Promise<void> {
+  const settingsPath = path.join(os.homedir(), ".pi", "agent", "settings.json");
+  await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), "utf8");
+}
+
+function extractOptionText(action: string, iconPrefix: string): string | null {
+  if (!action || action === "❌ Cancel" || action === "───") {
+    return null;
+  }
+  if (action.startsWith(iconPrefix)) {
+    return action.replace(iconPrefix, "").replace(" ✓", "").replace(/^"|"$/g, "");
+  }
+  return null;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Extension
@@ -84,6 +153,8 @@ export default function (pi: ExtensionAPI) {
     beepOverride: null,
     beepSoundOverride: null,
     focusOverride: null,
+    sayOverride: null,
+    sayMessageOverride: null,
     terminalApp: undefined,
     terminalPid: undefined,
     terminalTTY: undefined,
@@ -95,14 +166,11 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("session_start", async (_, ctx) => {
     // Reset session state
-    state.beepOverride = null;
-    state.beepSoundOverride = null;
-    state.focusOverride = null;
-    state.lastToolTime = undefined;
-    state.totalActiveTime = 0;
+    resetSessionState(state);
 
-    // Detect terminal
+    // Detect terminal and check for say command
     await detectTerminal(state);
+    await checkSayCommand();
   });
 
   pi.on("agent_start", () => {
@@ -127,27 +195,29 @@ export default function (pi: ExtensionAPI) {
     state.lastToolTime = undefined;
     state.totalActiveTime = 0;
 
-    const config = getConfig(ctx);
-    const shouldBeep = state.beepOverride ?? config.beep;
-    const shouldFocus = state.focusOverride ?? config.bringToFront;
-    const sound = state.beepSoundOverride ?? config.beepSound;
+    const config = await getConfig(ctx);
+    const eff = getEffective(state, config);
 
-    if (!shouldBeep && !shouldFocus) return;
+    if (!eff.beep && !eff.focus && !eff.say) return;
     if (duration < config.thresholdMs) return;
 
     const isBackground = await isTerminalInBackground(state);
     if (!isBackground) return;
 
     const tasks: Promise<void>[] = [];
-    const actions: string[] = [];
+    const actions: NotificationAction[] = [];
 
-    if (shouldBeep) {
-      tasks.push(playBeep(sound));
-      actions.push("beeped");
+    if (eff.beep) {
+      tasks.push(playBeep(eff.sound));
+      actions.push(NotificationAction.Beeded);
     }
-    if (shouldFocus) {
+    if (eff.focus) {
       tasks.push(bringTerminalToFront(state));
-      actions.push("brought to front");
+      actions.push(NotificationAction.BroughtToFront);
+    }
+    if (eff.say) {
+      tasks.push(speakMessage(eff.sayMessage));
+      actions.push(NotificationAction.Spoke);
     }
 
     await Promise.all(tasks);
@@ -226,6 +296,36 @@ async function isTerminalInBackground(state: SessionState): Promise<boolean> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Say Command Detection
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function checkSayCommand(): Promise<void> {
+  if (!IS_MACOS) {
+    HAS_SAY_COMMAND = false;
+    return;
+  }
+
+  try {
+    await execAsync("which say");
+    HAS_SAY_COMMAND = true;
+  } catch {
+    HAS_SAY_COMMAND = false;
+  }
+}
+
+function getCurrentDirName(): string {
+  try {
+    return process.cwd().split("/").pop() || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+function replaceMessageTemplates(message: string): string {
+  return message.replace(/{dirname}/g, getCurrentDirName());
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Notifications
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -241,6 +341,23 @@ async function playBeep(soundName: string = "Tink"): Promise<void> {
   } else {
     child_process.exec("echo -e '\\a'");
   }
+}
+
+async function speakMessage(message: string): Promise<void> {
+  if (!isSayAvailable()) return;
+
+  const finalMessage = replaceMessageTemplates(message);
+  const escapedMessage = finalMessage.replace(/"/g, '\\"');
+
+  return new Promise((resolve, reject) => {
+    child_process.exec(`say "${escapedMessage}"`, (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
 }
 
 async function bringTerminalToFront(state: SessionState): Promise<void> {
@@ -307,27 +424,21 @@ end tell`;
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-function getConfig(ctx: ExtensionContext): BackgroundNotifyConfig {
+async function getConfig(ctx: ExtensionContext): Promise<BackgroundNotifyConfig> {
   // Try to get settings from settingsManager first (for backward compatibility)
   const settings = (ctx as any).settingsManager?.getSettings() ?? {};
-  
+
   // If settingsManager has it, use it
   if (settings.backgroundNotify) {
     return { ...DEFAULT_CONFIG, ...settings.backgroundNotify };
   }
-  
+
   // Otherwise, read directly from the settings file
-  try {
-    const settingsPath = path.join(os.homedir(), ".pi", "agent", "settings.json");
-    const content = require("fs").readFileSync(settingsPath, "utf8");
-    const fileSettings = JSON.parse(content);
-    if (fileSettings.backgroundNotify) {
-      return { ...DEFAULT_CONFIG, ...fileSettings.backgroundNotify };
-    }
-  } catch {
-    // File doesn't exist or can't be read, use defaults
+  const fileSettings = await readSettingsFile();
+  if (fileSettings.backgroundNotify) {
+    return { ...DEFAULT_CONFIG, ...fileSettings.backgroundNotify };
   }
-  
+
   return DEFAULT_CONFIG;
 }
 
@@ -335,28 +446,21 @@ function getEffective(state: SessionState, config: BackgroundNotifyConfig) {
   return {
     beep: state.beepOverride ?? config.beep,
     focus: state.focusOverride ?? config.bringToFront,
+    say: isSayAvailable() ? (state.sayOverride ?? config.say) : false,
     sound: state.beepSoundOverride ?? config.beepSound,
+    sayMessage: state.sayMessageOverride ?? config.sayMessage,
   };
 }
 
-async function saveGlobalSettings(ctx: ExtensionContext, updates: Partial<BackgroundNotifyConfig>): Promise<void> {
+async function saveGlobalSettings(_ctx: ExtensionContext, updates: Partial<BackgroundNotifyConfig>): Promise<void> {
   try {
-    const settingsPath = path.join(os.homedir(), ".pi", "agent", "settings.json");
-    let settings: any = {};
-    
-    try {
-      const content = await fs.readFile(settingsPath, "utf8");
-      settings = JSON.parse(content);
-    } catch {
-      // File doesn't exist or invalid, start fresh
-    }
-
+    const settings = await readSettingsFile();
     settings.backgroundNotify = {
       ...settings.backgroundNotify,
       ...updates,
     };
 
-    await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), "utf8");
+    await writeSettingsFile(settings);
   } catch (err) {
     console.error("Failed to save settings:", err);
   }
@@ -370,7 +474,7 @@ function registerCommands(pi: ExtensionAPI, state: SessionState) {
   pi.registerCommand("notify-beep", {
     description: "Toggle beep notification (off if on, select sound if off)",
     handler: async (_, ctx) => {
-      const config = getConfig(ctx);
+      const config = await getConfig(ctx);
       const current = state.beepOverride ?? config.beep;
 
       if (current) {
@@ -397,7 +501,7 @@ function registerCommands(pi: ExtensionAPI, state: SessionState) {
         ];
 
         const action = await ctx.ui.select(`Turn beep ON - Select sound (current: ${currentSound})`, options);
-        
+
         if (!action || action === "❌ Cancel" || action === "───") {
           return;
         }
@@ -406,12 +510,14 @@ function registerCommands(pi: ExtensionAPI, state: SessionState) {
           state.beepOverride = true;
           ctx.ui.notify(`🔊 Beep ON (${currentSound})`, "info");
           await playBeep(currentSound);
-        } else if (action.startsWith("🎵 ")) {
-          const sound = action.replace("🎵 ", "").replace(" ✓", "");
-          state.beepOverride = true;
-          state.beepSoundOverride = sound;
-          ctx.ui.notify(`🔊 Beep ON (${sound})`, "info");
-          await playBeep(sound);
+        } else {
+          const sound = extractOptionText(action, "🎵 ");
+          if (sound) {
+            state.beepOverride = true;
+            state.beepSoundOverride = sound;
+            ctx.ui.notify(`🔊 Beep ON (${sound})`, "info");
+            await playBeep(sound);
+          }
         }
       }
     },
@@ -420,7 +526,7 @@ function registerCommands(pi: ExtensionAPI, state: SessionState) {
   pi.registerCommand("notify-focus", {
     description: "Toggle bring-to-front",
     handler: async (_, ctx) => {
-      const config = getConfig(ctx);
+      const config = await getConfig(ctx);
       const current = state.focusOverride ?? config.bringToFront;
       state.focusOverride = !current;
 
@@ -428,10 +534,76 @@ function registerCommands(pi: ExtensionAPI, state: SessionState) {
     },
   });
 
+  pi.registerCommand("notify-say", {
+    description: "Toggle speech notification (off if on, select message if off)",
+    handler: async (_, ctx) => {
+      if (!isSayAvailable()) {
+        ctx.ui.notify("❌ 'say' command not available (macOS only)", "warning");
+        return;
+      }
+
+      const config = await getConfig(ctx);
+      const current = state.sayOverride ?? config.say;
+
+      if (current) {
+        // Currently ON, turn OFF
+        state.sayOverride = false;
+        ctx.ui.notify("🔇 Speech OFF", "warning");
+      } else {
+        // Currently OFF, let user select a message
+        if (!ctx.hasUI) {
+          // No UI, just turn on with current message
+          state.sayOverride = true;
+          const msg = state.sayMessageOverride ?? config.sayMessage;
+          ctx.ui.notify("🗣️  Speech ON", "info");
+          await speakMessage(msg);
+          return;
+        }
+
+        const currentMessage = state.sayMessageOverride ?? config.sayMessage;
+        const options = [
+          "🗣️  Use current message",
+          "───",
+          ...SAY_MESSAGES.map((m) => `💬 "${m}"${m === currentMessage ? " ✓" : ""}`),
+          "───",
+          "✏️  Enter custom message...",
+          "───",
+          "❌ Cancel"
+        ];
+
+        const action = await ctx.ui.select(`Turn speech ON - Select message (current: "${currentMessage}")`, options);
+
+        if (!action || action === "❌ Cancel" || action === "───") {
+          return;
+        }
+
+        if (action === "🗣️  Use current message") {
+          state.sayOverride = true;
+          ctx.ui.notify(`🗣️  Speech ON ("${currentMessage}")`, "info");
+          await speakMessage(currentMessage);
+        } else if (action.startsWith("💬 ")) {
+          const message = action.replace('💬 "', '').replace('"', '').replace(" ✓", "");
+          state.sayOverride = true;
+          state.sayMessageOverride = message;
+          ctx.ui.notify(`🗣️  Speech ON ("${message}")`, "info");
+          await speakMessage(message);
+        } else if (action === "✏️  Enter custom message...") {
+          const customMessage = await ctx.ui.input("Enter message to speak");
+          if (customMessage && customMessage.trim()) {
+            state.sayOverride = true;
+            state.sayMessageOverride = customMessage.trim();
+            ctx.ui.notify(`🗣️  Speech ON ("${customMessage.trim()}")`, "info");
+            await speakMessage(customMessage.trim());
+          }
+        }
+      }
+    },
+  });
+
   pi.registerCommand("notify-threshold", {
     description: "Set notification threshold (minimum task duration)",
     handler: async (_, ctx) => {
-      const config = getConfig(ctx);
+      const config = await getConfig(ctx);
 
       if (!ctx.hasUI) {
         ctx.ui.notify(`Current threshold: ${config.thresholdMs}ms`, "info");
@@ -449,7 +621,7 @@ function registerCommands(pi: ExtensionAPI, state: SessionState) {
       ];
 
       const action = await ctx.ui.select(`Threshold (current: ${config.thresholdMs}ms)`, options);
-      
+
       if (!action || action === "❌ Cancel" || action === "───") {
         return;
       }
@@ -466,16 +638,18 @@ function registerCommands(pi: ExtensionAPI, state: SessionState) {
   pi.registerCommand("notify-status", {
     description: "Show notification settings",
     handler: async (_, ctx) => {
-      const config = getConfig(ctx);
+      const config = await getConfig(ctx);
       const eff = getEffective(state, config);
 
       const beepIcon = eff.beep ? "🔊" : "🔇";
       const focusIcon = eff.focus ? "🪟" : "⬜";
-      
+      const sayIcon = isSayAvailable() && eff.say ? "🗣️" : "🔇";
+
       const globalBeepIcon = config.beep ? "🔊" : "🔇";
       const globalFocusIcon = config.bringToFront ? "🪟" : "⬜";
+      const globalSayIcon = isSayAvailable() && config.say ? "🗣️" : "🔇";
 
-      const hasOverrides = state.beepOverride !== null || state.focusOverride !== null || state.beepSoundOverride !== null;
+      const hasOverrides = state.beepOverride !== null || state.focusOverride !== null || state.beepSoundOverride !== null || state.sayOverride !== null || state.sayMessageOverride !== null;
 
       const status = [
         "╭─ Background Notify Status ─╮",
@@ -483,12 +657,18 @@ function registerCommands(pi: ExtensionAPI, state: SessionState) {
         "Current (Effective):",
         `  ${beepIcon} Beep: ${eff.beep ? "ON" : "OFF"}`,
         `  ${focusIcon} Focus: ${eff.focus ? "ON" : "OFF"}`,
+        isSayAvailable() ? `  ${sayIcon} Speech: ${eff.say ? "ON" : "OFF"}` : `  🔇 Speech: (not available)`,
+        isSayAvailable() ? `  💬 Message: "${eff.sayMessage}"` : "",
+        isSayAvailable() && eff.sayMessage.includes("{dirname}") ? `  → Spoken: "${replaceMessageTemplates(eff.sayMessage)}"` : "",
         `  🎵 Sound: ${eff.sound}`,
         `  ⏱️  Threshold: ${config.thresholdMs}ms`,
         "",
         "Global Defaults:",
         `  ${globalBeepIcon} Beep: ${config.beep ? "ON" : "OFF"}`,
         `  ${globalFocusIcon} Focus: ${config.bringToFront ? "ON" : "OFF"}`,
+        isSayAvailable() ? `  ${globalSayIcon} Speech: ${config.say ? "ON" : "OFF"}` : `  🔇 Speech: (not available)`,
+        isSayAvailable() ? `  💬 Message: "${config.sayMessage}"` : "",
+        isSayAvailable() && config.sayMessage.includes("{dirname}") ? `  → Spoken: "${replaceMessageTemplates(config.sayMessage)}"` : "",
         `  🎵 Sound: ${config.beepSound}`,
         `  ⏱️  Threshold: ${config.thresholdMs}ms`,
       ];
@@ -505,12 +685,21 @@ function registerCommands(pi: ExtensionAPI, state: SessionState) {
         if (state.beepSoundOverride !== null) {
           status.push(`  🎵 Sound: ${state.beepSoundOverride}`);
         }
+        if (state.sayOverride !== null) {
+          status.push(`  ${state.sayOverride ? "🗣️" : "🔇"} Speech: ${state.sayOverride ? "ON" : "OFF"}`);
+        }
+        if (state.sayMessageOverride !== null) {
+          status.push(`  💬 Message: "${state.sayMessageOverride}"`);
+          if (state.sayMessageOverride.includes("{dirname}")) {
+            status.push(`     → Spoken: "${replaceMessageTemplates(state.sayMessageOverride)}"`);
+          }
+        }
       }
 
       status.push("");
       status.push(`💻 Terminal: ${state.terminalApp ?? "(unknown)"}`);
       status.push("╰────────────────────────────╯");
-      
+
       ctx.ui.notify(status.join("\n"), "info");
     },
   });
@@ -518,26 +707,31 @@ function registerCommands(pi: ExtensionAPI, state: SessionState) {
   pi.registerCommand("notify-save-global", {
     description: "Save current settings as global defaults",
     handler: async (_, ctx) => {
-      const config = getConfig(ctx);
+      const config = await getConfig(ctx);
       const eff = getEffective(state, config);
 
       await saveGlobalSettings(ctx, {
         beep: eff.beep,
         bringToFront: eff.focus,
         beepSound: eff.sound,
+        say: isSayAvailable() ? eff.say : false,
+        sayMessage: eff.sayMessage,
         thresholdMs: config.thresholdMs,
       });
 
       ctx.ui.notify("✅ Settings saved to ~/.pi/agent/settings.json", "info");
-      
+
       const status = [
         `  ${eff.beep ? "🔊" : "🔇"} Beep: ${eff.beep ? "ON" : "OFF"}`,
         `  ${eff.focus ? "🪟" : "⬜"} Focus: ${eff.focus ? "ON" : "OFF"}`,
+        isSayAvailable() ? `  ${eff.say ? "🗣️" : "🔇"} Speech: ${eff.say ? "ON" : "OFF"}` : "",
+        isSayAvailable() ? `  💬 Message: "${eff.sayMessage}"` : "",
         `  🎵 Sound: ${eff.sound}`,
         `  ⏱️  Threshold: ${config.thresholdMs}ms`,
-      ].join("\n");
-      
+      ].filter(Boolean).join("\n");
+
       ctx.ui.notify(status, "info");
     },
   });
 }
+

@@ -327,6 +327,21 @@ describe("Background Notify", () => {
     const output = session.capture();
     expect(output).toMatch(/focus|on|off/i);
   }, 15_000);
+
+  it("/notify-say toggles speech independently (macOS only)", async () => {
+    if (!prereqsMet) return;
+
+    session = new TmuxSession();
+    await session.start("background-notify");
+    await sleep(1000);
+
+    await session.command("notify-say");
+    await sleep(500);
+
+    const output = session.capture();
+    // Either it shows speech toggle or says not available
+    expect(output).toMatch(/speech|say|not available/i);
+  }, 15_000);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
