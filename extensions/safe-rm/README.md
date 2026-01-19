@@ -1,10 +1,11 @@
 # 🗑️ Safe-RM Extension
 
-Intercepts `rm` commands and replaces them with the macOS `trash` command.
+Intercepts `rm` commands and replaces them with the macOS `trash` command (or falls back to `rm` on other platforms).
 
 ## Features
 
 - 🗑️ **Replaces rm with trash** - Uses macOS native `trash` command
+- 🌐 **Cross-platform** - On non-macOS systems, falls back to regular `rm`
 - 📝 **Debug logging** - Logs both original and replacement commands
 - 🎯 **Careful detection** - Minimizes false positives when identifying rm commands
 - 📋 **File tracking** - Logs which files were affected
@@ -12,10 +13,10 @@ Intercepts `rm` commands and replaces them with the macOS `trash` command.
 ## How It Works
 
 1. **Detects** `rm` commands (including `/bin/rm`, `/usr/bin/rm`)
-2. **Parses** flags and file arguments from the rm command
-3. **Replaces** `rm` with `trash <files>` command
+2. **Parses** file arguments from the rm command
+3. **Replaces** `rm` with `trash <files>` (macOS) or falls back to `rm` (other platforms)
 4. **Logs** both original and replacement commands to debug log file
-5. **Executes** the `trash` command instead of `rm`
+5. **Executes** the replacement command
 
 ## Installation
 
@@ -44,6 +45,15 @@ Add to `~/.pi/agent/settings.json`:
 |---------|------|---------|-------------|
 | `enabledByDefault` | boolean | `true` | Enable for new sessions |
 | `debugLogPath` | string | `~/.pi/safe-rm-debug.log` | Path to debug log file |
+
+## Platform Support
+
+| Platform | Behavior |
+|----------|----------|
+| **macOS** | Uses native `trash` command to move files to Trash |
+| **Linux/Windows** | Falls back to regular `rm` command (no safety feature) |
+
+> **Note:** On non-macOS systems, the extension will still log all `rm` commands but cannot provide the trash functionality. Consider using platform-specific trash tools like `trash-cli` (Linux) if you need this feature on other platforms.
 
 ## Slash Commands
 

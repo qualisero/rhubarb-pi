@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { Container, Input, matchesKey, Text, Key, type TUI } from "@mariozechner/pi-tui";
+import { Input, matchesKey, Key, type TUI } from "@mariozechner/pi-tui";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
@@ -14,7 +14,8 @@ async function loadConfig(): Promise<Config> {
   try {
     const content = await readFile(CONFIG_FILE, "utf-8");
     return JSON.parse(content);
-  } catch {
+  } catch (error) {
+    console.error(`[compact-config] Failed to load config from "${CONFIG_FILE}":`, error);
     return { thresholds: {} };
   }
 }
@@ -104,7 +105,6 @@ export default function (pi: ExtensionAPI) {
             const thresholdPart = item.threshold !== undefined
               ? `${theme.fg("accent", theme.bold(` → ${item.threshold.toLocaleString()}`))}`
               : "";
-            const itemText = `${baseText}${thresholdPart}`;
 
             if (isSelected) {
               lines.push(
@@ -256,6 +256,9 @@ export default function (pi: ExtensionAPI) {
       );
     }
 
+    // ctx.compact() is a fire-and-forget API (returns void).
+    // The onComplete and onError callbacks handle the async result.
+    // This is the intended usage pattern - the extension doesn't need to await.
     ctx.compact({
       customInstructions: `Compaction triggered at ${usage.tokens.toLocaleString()} tokens (threshold: ${threshold.toLocaleString()})`,
       onComplete: () => {

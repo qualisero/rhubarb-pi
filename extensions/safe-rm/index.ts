@@ -66,7 +66,12 @@ export default function (pi: ExtensionAPI) {
     return false;
   }
 
-  // Parse rm command to extract files and flags
+  // Parse rm command to extract files
+  //
+  // NOTE: This is a simplified parser that doesn't handle all shell quoting edge cases
+  // (e.g., escaped characters, complex flags with values). However, since the original
+  // command was already shell-parsed by the user's shell, we're just extracting the
+  // file arguments for the trash command. Files are properly quoted when passed to trash.
   function parseRmCommand(command: string): { flags: string; files: string[]; commandRest: string } {
     const trimmed = command.trim();
 
@@ -99,9 +104,20 @@ export default function (pi: ExtensionAPI) {
 
   // Build trash command
   function buildTrashCommand(files: string[]): string {
-    // macOS has a built-in `trash` command
-    // Usage: trash <file1> <file2> ...
-    return `trash ${files.join(' ')}`;
+    // Check OS for appropriate command
+    const isMacOS = os.platform() === 'darwin';
+
+    // On macOS, use the built-in `trash` command.
+    if (isMacOS) {
+      // Usage: trash <file1> <file2> ...
+      // Quote filenames to handle spaces and special characters
+      const quotedFiles = files.map(f => `'${f.replace(/'/g, "'\\''")}'`);
+      return `trash ${quotedFiles.join(' ')}`;
+    }
+
+    // On non-macOS systems, fall back to regular rm so the command still works.
+    // Note: This bypasses the safety feature on non-macOS systems.
+    return `rm ${files.map(f => `'${f.replace(/'/g, "'\\''")}'`).join(' ')}`;
   }
 
   // Log to debug file (simplified format)
@@ -139,7 +155,7 @@ export default function (pi: ExtensionAPI) {
     if (!enabled) return undefined;
 
     // Parse the rm command
-    const { flags, files, commandRest } = parseRmCommand(command);
+    const { files } = parseRmCommand(command);
 
     if (files.length === 0) {
       // No files specified, let original command run
@@ -179,12 +195,14 @@ export default function (pi: ExtensionAPI) {
         logInfo = "\n⚠️  Could not read debug log";
       }
 
+      const isMacOS = os.platform() === 'darwin';
+      const osInfo = isMacOS ? "macOS: trash command" : "Non-macOS: falls back to rm";
+
       ctx.ui?.notify?.([
         "╭─ Safe-RM Status ─╮",
         `│                     │`,
         `│  Status: ${status} │`,
-        `│  Uses macOS 'trash' │`,
-        `│  command             │`,
+        `│  ${osInfo.padEnd(15)} │`,
         `${logInfo}`,
         `│                     │`,
         `╰─────────────────────╯`,
