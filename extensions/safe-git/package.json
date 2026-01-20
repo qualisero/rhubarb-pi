@@ -4,7 +4,7 @@
   "description": "Pi extension requiring approval for dangerous git operations",
   "main": "index.ts",
   "scripts": {
-    "install:global": "mkdir -p ~/.pi/agent/extensions && cp index.ts ~/.pi/agent/extensions/safe-git.ts && echo 'Installed to ~/.pi/agent/extensions/safe-git.ts'",
+    "install:global": "mkdir -p ~/.pi/agent/extensions && ln -sf \"$(pwd)/index.ts\" ~/.pi/agent/extensions/safe-git.ts && echo 'Symlinked to ~/.pi/agent/extensions/safe-git.ts'",
     "uninstall:global": "rm -f ~/.pi/agent/extensions/safe-git.ts && echo 'Uninstalled from ~/.pi/agent/extensions/'"
   },
   "keywords": [

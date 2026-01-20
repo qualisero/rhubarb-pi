@@ -4,8 +4,8 @@
   "description": "Pi extension that notifies you when long-running tasks complete while your terminal is in the background",
   "main": "index.ts",
   "scripts": {
-    "install:global": "mkdir -p ~/.pi/agent/extensions && cp index.ts ~/.pi/agent/extensions/background-notify.ts && echo 'Installed to ~/.pi/agent/extensions/background-notify.ts'",
-    "install:project": "mkdir -p .pi/extensions && cp index.ts .pi/extensions/background-notify.ts && echo 'Installed to .pi/extensions/background-notify.ts'",
+    "install:global": "mkdir -p ~/.pi/agent/extensions && ln -sf \"$(pwd)/index.ts\" ~/.pi/agent/extensions/background-notify.ts && echo 'Symlinked to ~/.pi/agent/extensions/background-notify.ts'",
+    "install:project": "mkdir -p .pi/extensions && ln -sf \"$(pwd)/index.ts\" .pi/extensions/background-notify.ts && echo 'Symlinked to .pi/extensions/background-notify.ts'",
     "uninstall:global": "rm -f ~/.pi/agent/extensions/background-notify.ts && rm -rf ~/.pi/agent/extensions/background-notify && echo 'Uninstalled from ~/.pi/agent/extensions/'",
     "uninstall:project": "rm -f .pi/extensions/background-notify.ts && echo 'Uninstalled from .pi/extensions/'"
   },

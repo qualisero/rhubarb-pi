@@ -9,5 +9,9 @@
     "strict": false,
     "noImplicitAny": false,
     "types": ["node"]
-  }
+  },
+  "exclude": [
+    "AGENT_DOCS",
+    "node_modules"
+  ]
 }
