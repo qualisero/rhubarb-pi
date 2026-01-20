@@ -38,6 +38,9 @@ interface ModelItem {
 }
 
 export default function (pi: ExtensionAPI) {
+  // Track if we need to trigger compaction on agent_end
+  let compactionTriggered = false;
+
   pi.registerCommand("compact-config", {
     description: "Configure custom compaction thresholds per model",
     handler: async (_args, ctx) => {
@@ -230,6 +233,7 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
+  // Check if custom threshold is reached at turn_end
   pi.on("turn_end", async (_event, ctx) => {
     const model = ctx.model;
     if (!model) {
@@ -249,6 +253,67 @@ export default function (pi: ExtensionAPI) {
       return;
     }
 
+    // Custom threshold exceeded, mark for potential compaction on agent_end
+    compactionTriggered = true;
+  });
+
+  // Trigger compaction when agent completes (if needed and built-in won't handle it)
+  pi.on("agent_end", async (_event, ctx) => {
+    if (!compactionTriggered) {
+      return;
+    }
+
+    const model = ctx.model;
+    if (!model) {
+      compactionTriggered = false;
+      return;
+    }
+
+    const modelKey = getModelKey(model);
+    const config = await loadConfig();
+    const threshold = config.thresholds[modelKey];
+    if (threshold === undefined) {
+      compactionTriggered = false;
+      return;
+    }
+
+    const usage = ctx.getContextUsage();
+    if (!usage || usage.tokens <= threshold) {
+      compactionTriggered = false;
+      return;
+    }
+
+    // Check what built-in auto-compaction would do
+    // Access settings via the settings manager if available
+    const settings = (ctx as any).settings?.compaction;
+    const builtInEnabled = settings?.enabled ?? true;
+    const reserveTokens = settings?.reserveTokens ?? 16384;
+    const contextWindow = model.contextWindow;
+
+    // Calculate built-in threshold (context window minus reserve)
+    const builtInThreshold = contextWindow - reserveTokens;
+
+    // If built-in will handle it (and is enabled), let it
+    if (builtInEnabled && usage.tokens >= builtInThreshold) {
+      // Built-in auto-compaction will run after this handler completes
+      // Just reset our flag
+      compactionTriggered = false;
+      return;
+    }
+
+    // Built-in won't trigger, but custom threshold is exceeded
+    // Trigger manual compaction now (agent is idle, so it's safe)
+    if (!ctx.isIdle()) {
+      // Agent isn't idle yet, let built-in handle it if it will
+      if (builtInEnabled && usage.tokens >= builtInThreshold) {
+        compactionTriggered = false;
+        return;
+      }
+      // Can't compact right now, skip
+      compactionTriggered = false;
+      return;
+    }
+
     if (ctx.hasUI) {
       ctx.ui.notify(
         `Context at ${usage.tokens.toLocaleString()} tokens (threshold: ${threshold.toLocaleString()}), compacting...`,
@@ -256,9 +321,10 @@ export default function (pi: ExtensionAPI) {
       );
     }
 
-    // ctx.compact() is a fire-and-forget API (returns void).
-    // The onComplete and onError callbacks handle the async result.
-    // This is the intended usage pattern - the extension doesn't need to await.
+    compactionTriggered = false;
+
+    // ctx.compact() is safe here because agent is done
+    // The onComplete and onError callbacks handle the async result
     ctx.compact({
       customInstructions: `Compaction triggered at ${usage.tokens.toLocaleString()} tokens (threshold: ${threshold.toLocaleString()})`,
       onComplete: () => {
