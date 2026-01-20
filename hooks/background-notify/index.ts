@@ -350,7 +350,7 @@ async function speakMessage(message: string): Promise<void> {
   const escapedMessage = finalMessage.replace(/"/g, '\\"');
 
   return new Promise((resolve, reject) => {
-    child_process.exec(`say "${escapedMessage}"`, (error) => {
+    child_process.exec(`say -v Daniel "${escapedMessage}"`, (error) => {
       if (error) {
         reject(error);
         return;
