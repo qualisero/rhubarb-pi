@@ -12,6 +12,7 @@ A collection of extensions for the [pi coding agent](https://github.com/badlogic
 | session-emoji | hook       | `npm run install:session-emoji` | `sessionEmoji` |
 | session-color | hook       | `npm run install:session-color` | `sessionColor` |
 | safe-git     | extension  | `npm run install:safe-git` | `safeGit` |
+| pi-agent-scip | extension  | `npm run install:pi-agent-scip` | N/A |
 
 ---
 
@@ -68,6 +69,20 @@ npm run install:safe-git
 ```
 
 [📖 Documentation](docs/safe-git.md)
+
+---
+
+### 🔍 pi-agent-scip
+
+SCIP code intelligence tools for Python and TypeScript/JavaScript projects. Provides fast, compiler-accurate navigation (go to definition, find references, list/search symbols, project tree) using Sourcegraph's SCIP indexers.
+
+**Tools:** `scip_find_definition`, `scip_find_references`, `scip_list_symbols`, `scip_search_symbols`, `scip_project_tree`
+
+```bash
+npm run install:pi-agent-scip
+```
+
+[📖 Documentation](extensions/pi-agent-scip/README.md)
 
 ---
 
