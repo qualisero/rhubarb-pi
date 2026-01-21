@@ -1,0 +1,71 @@
+{
+  "name": "@rhubarb-pi/pi-agent-scip",
+  "version": "0.3.1",
+  "description": "SCIP code intelligence tools for pi-coding-agent (Python, TypeScript/JavaScript)",
+  "keywords": [
+    "pi",
+    "scip",
+    "code-intelligence",
+    "python",
+    "typescript",
+    "javascript"
+  ],
+  "homepage": "https://github.com/qualisero/rhubarb-pi#readme",
+  "bugs": {
+    "url": "https://github.com/qualisero/rhubarb-pi/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qualisero/rhubarb-pi.git"
+  },
+  "license": "Apache-2.0",
+  "author": "Dave dV",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "pi-agent-scip-status": "dist/cli/status.js"
+  },
+  "directories": {
+    "test": "tests"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -w --preserveWatchOutput",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "prepublishOnly": "npm run build && npm test",
+    "install:global": "npm run build && mkdir -p ~/.pi/agent/extensions && ln -sf \"$(pwd)/dist/index.js\" ~/.pi/agent/extensions/pi-agent-scip.js && echo 'Symlinked to ~/.pi/agent/extensions/pi-agent-scip.js'",
+    "uninstall:global": "rm -f ~/.pi/agent/extensions/pi-agent-scip.js ~/.pi/agent/extensions/pi-agent-scip && echo 'Uninstalled from ~/.pi/agent/extensions/'"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.47",
+    "@sourcegraph/scip-python": "^0.6.6",
+    "@sourcegraph/scip-typescript": "^0.4.0"
+  },
+  "devDependencies": {
+    "@mariozechner/pi-coding-agent": "^0.37.8",
+    "@types/node": "^25.0.6",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.16"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": ">=0.37.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "pi": {
+    "extensions": ["./dist/index.js"]
+  }
+}
