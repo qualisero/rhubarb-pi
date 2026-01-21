@@ -109,6 +109,10 @@ export async function runPrintMode(
       env: { ...process.env },
     });
 
+    if (proc.stdin) {
+      proc.stdin.end();
+    }
+
     let stdout = "";
     let stderr = "";
 
