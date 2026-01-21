@@ -11,12 +11,20 @@
  * Features:
  * - Per-command approval with option to approve all of same type for session
  * - Example: Approve "gh pr view" once or approve all "GitHub CLI" commands for session
+ * - Notifications on confirmation prompts (using backgroundNotify settings)
+ * - Speech message: "{session dir} needs your attention" (template expands to current directory)
  *
  * Configuration (in ~/.pi/agent/settings.json):
  * {
  *   "safeGit": {
  *     "promptLevel": "medium",  // "high", "medium", or "none"
  *     "enabledByDefault": true
+ *   },
+ *   "backgroundNotify": {
+ *     "beep": true,
+ *     "bringToFront": true,
+ *     "say": false,
+ *     "sayMessage": "Confirmation required"
  *   }
  * }
  *
@@ -26,7 +34,15 @@
  * - "none": No prompts (extension effectively disabled)
  */
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import {
+  getBackgroundNotifyConfig,
+  type TerminalInfo,
+  type BackgroundNotifyConfig,
+  detectTerminalInfo,
+  checkSayAvailable,
+  notifyOnConfirm,
+} from "../../shared";
 
 type PromptLevel = "high" | "medium" | "none";
 type Severity = "high" | "medium";
@@ -45,12 +61,18 @@ export default function (pi: ExtensionAPI) {
   // Session overrides
   let sessionEnabledOverride: boolean | null = null;
   let sessionPromptLevelOverride: PromptLevel | null = null;
-  
+
   // Session approvals: track which actions are auto-approved for this session
   let sessionApprovedActions: Set<string> = new Set();
-  
+
   // Session blocks: track which actions are auto-blocked for this session
   let sessionBlockedActions: Set<string> = new Set();
+
+  // Terminal info for notifications
+  let terminalInfo: TerminalInfo = {};
+
+  // Background notify config for notifications
+  let notifyConfig: BackgroundNotifyConfig | null = null;
 
   // Patterns that require explicit approval, ordered by severity
   const gitPatterns: { pattern: RegExp; action: string; severity: Severity }[] = [
@@ -82,8 +104,8 @@ export default function (pi: ExtensionAPI) {
   };
 
   // Helper to get effective config
-  function getEffectiveConfig(ctx: any): { enabled: boolean; promptLevel: PromptLevel } {
-    const settings = ctx.settingsManager?.getSettings() ?? {};
+  function getEffectiveConfig(ctx: ExtensionContext): { enabled: boolean; promptLevel: PromptLevel } {
+    const settings = (ctx as any).settingsManager?.getSettings() ?? {};
     const config: Required<SafeGitConfig> = {
       ...DEFAULT_CONFIG,
       ...(settings.safeGit ?? {}),
@@ -121,7 +143,7 @@ export default function (pi: ExtensionAPI) {
     description: "Set prompt level: high, medium, or none",
     handler: async (args, ctx) => {
       const arg = args.trim().toLowerCase();
-      
+
       if (arg === "high" || arg === "medium" || arg === "none") {
         sessionPromptLevelOverride = arg;
         const desc = {
@@ -280,6 +302,16 @@ export default function (pi: ExtensionAPI) {
           return { block: true, reason: `Git ${action} blocked by user (session setting)` };
         }
 
+        // User approved - trigger notifications if configured
+        if (notifyConfig && (notifyConfig.beep || notifyConfig.bringToFront || notifyConfig.say)) {
+          await notifyOnConfirm(notifyConfig, terminalInfo, {
+            beep: notifyConfig.beep,
+            bringToFront: notifyConfig.bringToFront,
+            say: notifyConfig.say,
+            sayMessage: "{session dir} needs your attention",
+          });
+        }
+
         if (choice.startsWith("✅✅")) {
           // Approve this action type for the entire session
           sessionApprovedActions.add(action);
@@ -306,10 +338,27 @@ export default function (pi: ExtensionAPI) {
     sessionApprovedActions.clear();
     sessionBlockedActions.clear();
 
+    // Initialize terminal detection and notifications
+    terminalInfo = await detectTerminalInfo();
+    await checkSayAvailable();
+    notifyConfig = await getBackgroundNotifyConfig(ctx);
+
     if (ctx.hasUI) {
       const { enabled, promptLevel } = getEffectiveConfig(ctx);
       if (enabled && promptLevel !== "none") {
-        ctx.ui.notify(`pi-safe-git: Protection ${promptLevel === "high" ? "🔴 high-risk only" : "🟡 medium+high"}`, "info");
+        const promptDesc = promptLevel === "high" ? "🔴 high-risk only" : "🟡 medium+high";
+        ctx.ui.notify(`pi-safe-git: Protection ${promptDesc}`, "info");
+
+        if (notifyConfig && (notifyConfig.beep || notifyConfig.bringToFront || notifyConfig.say)) {
+          const notifyFeatures = [
+            notifyConfig.beep ? "🔊 beep" : "",
+            notifyConfig.bringToFront ? "🪟 focus" : "",
+            notifyConfig.say ? "🗣️ speak" : "",
+          ].filter(Boolean).join(", ");
+          if (notifyFeatures) {
+            ctx.ui.notify(`Notifications on confirm: ${notifyFeatures}`, "info");
+          }
+        }
       }
     }
   });

@@ -2,10 +2,10 @@
   "name": "@rhubarb-pi/safe-git",
   "version": "1.0.0",
   "description": "Pi extension requiring approval for dangerous git operations",
-  "main": "index.ts",
+  "main": "index.js",
   "scripts": {
-    "install:global": "mkdir -p ~/.pi/agent/extensions && ln -sf \"$(pwd)/index.ts\" ~/.pi/agent/extensions/safe-git.ts && echo 'Symlinked to ~/.pi/agent/extensions/safe-git.ts'",
-    "uninstall:global": "rm -f ~/.pi/agent/extensions/safe-git.ts && echo 'Uninstalled from ~/.pi/agent/extensions/'"
+    "install:global": "mkdir -p ~/.pi/agent/extensions && ln -sf \"$(pwd)/index.js\" ~/.pi/agent/extensions/safe-git.js && echo 'Symlinked to ~/.pi/agent/extensions/safe-git.js'",
+    "uninstall:global": "rm -f ~/.pi/agent/extensions/safe-git.js && echo 'Uninstalled from ~/.pi/agent/extensions/'"
   },
   "keywords": [
     "pi",
