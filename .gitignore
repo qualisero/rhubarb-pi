@@ -25,3 +25,7 @@ AGENT_DOCS/
 
 # Ralph loop state
 .ralph/
+
+# Compiled extension outputs
+hooks/background-notify/index.js
+extensions/safe-git/index.js
