@@ -1,6 +1,7 @@
 {
   "name": "rhubarb-pi",
   "version": "2.1.0",
+  "type": "module",
   "description": "A collection of extensions for Pi coding agent",
   "keywords": [
     "pi",
@@ -40,7 +41,7 @@
     "verify": "./verify.sh",
     "build": "npm run build:background-notify && npm run build:safe-git",
     "build:background-notify": "esbuild hooks/background-notify/index.ts --bundle --platform=node --format=cjs --outfile=hooks/background-notify/index.js --external:@mariozechner/pi-coding-agent",
-    "build:safe-git": "esbuild extensions/safe-git/index.ts --bundle --platform=node --format=cjs --outfile=extensions/safe-git/index.js --external:@mariozechner/pi-coding-agent",
+    "build:safe-git": "esbuild extensions/safe-git/index.ts --bundle --platform=node --format=cjs --outfile=extensions/safe-git/index.js --external:@mariozechner/pi-coding-agent && node scripts/fix-export.js extensions/safe-git/index.js",
     "test": "vitest run",
     "test:e2e": "vitest run --config vitest.config.ts",
     "test:e2e:watch": "vitest --config vitest.config.ts",
