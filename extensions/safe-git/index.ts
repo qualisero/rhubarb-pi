@@ -281,6 +281,17 @@ export default function (pi: ExtensionAPI) {
             ? `${icon} ⚠️ HIGH RISK: Git ${action} requires approval`
             : `${icon} Git ${action} requires approval`;
 
+        // Trigger notifications BEFORE showing the confirmation prompt
+        // so the user is alerted that their attention is needed
+        if (notifyConfig && (notifyConfig.beep || notifyConfig.bringToFront || notifyConfig.say)) {
+          await notifyOnConfirm(notifyConfig, terminalInfo, {
+            beep: notifyConfig.beep,
+            bringToFront: notifyConfig.bringToFront,
+            say: notifyConfig.say,
+            sayMessage: "{session dir} needs your attention",
+          });
+        }
+
         const choice = await ctx.ui.select(title, [
           "✅ Allow this command once",
           "⏭️  Decline this time (ask again later)",
@@ -300,16 +311,6 @@ export default function (pi: ExtensionAPI) {
           ctx.ui.notify(`🚫 All "git ${action}" commands auto-blocked for this session`, "warning");
           ctx.ui.notify(`⏱️  Auto-block will reset when session ends`, "info");
           return { block: true, reason: `Git ${action} blocked by user (session setting)` };
-        }
-
-        // User approved - trigger notifications if configured
-        if (notifyConfig && (notifyConfig.beep || notifyConfig.bringToFront || notifyConfig.say)) {
-          await notifyOnConfirm(notifyConfig, terminalInfo, {
-            beep: notifyConfig.beep,
-            bringToFront: notifyConfig.bringToFront,
-            say: notifyConfig.say,
-            sayMessage: "{session dir} needs your attention",
-          });
         }
 
         if (choice.startsWith("✅✅")) {
