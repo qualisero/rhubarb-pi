@@ -12,6 +12,98 @@ import * as path from "node:path";
 const execAsync = promisify(child_process.exec);
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Pronunciation Replacements
+// ─────────────────────────────────────────────────────────────────────────────
+
+type PronunciationReplacements = Record<string, string>;
+
+let pronunciationReplacements: PronunciationReplacements = {};
+let pronunciationsLoaded = false;
+
+/**
+ * Parse a macOS plist file containing pronunciation replacements.
+ * Expected format: <dict><key>word</key><string>pronunciation</string>...</dict>
+ */
+async function parsePronunciationsPlist(
+  plistPath: string
+): Promise<PronunciationReplacements> {
+  try {
+    const content = await fs.readFile(plistPath, "utf-8");
+    const replacements: PronunciationReplacements = {};
+
+    // Simple regex-based parser for the specific plist structure
+    const keyRegex = /<key>([^<]+)<\/key>\s*<string>([^<]+)<\/string>/g;
+    let match;
+
+    while ((match = keyRegex.exec(content)) !== null) {
+      const [, key, value] = match;
+      replacements[key.trim()] = value.trim();
+    }
+
+    return replacements;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Load pronunciation replacements from ~/Library/Speech/Pronunciations.plist
+ * This is called once at startup on macOS.
+ */
+export async function loadPronunciations(): Promise<void> {
+  if (!isMacOS() || pronunciationsLoaded) {
+    return;
+  }
+
+  try {
+    const homeDir = os.homedir();
+    const plistPath = path.join(homeDir, "Library", "Speech", "Pronunciations.plist");
+    pronunciationReplacements = await parsePronunciationsPlist(plistPath);
+    pronunciationsLoaded = true;
+  } catch {
+    // Silently fail - pronunciations file may not exist
+    pronunciationReplacements = {};
+    pronunciationsLoaded = true;
+  }
+}
+
+/**
+ * Get the loaded pronunciation replacements (for testing/debugging)
+ */
+export function getPronunciationReplacements(): PronunciationReplacements {
+  return { ...pronunciationReplacements };
+}
+
+/**
+ * Apply pronunciation replacements to a message.
+ * Replaces each occurrence of a key with its pronunciation value.
+ */
+export function applyPronunciations(message: string): string {
+  let result = message;
+
+  // Sort keys by length (descending) to match longer words first
+  const sortedKeys = Object.keys(pronunciationReplacements).sort(
+    (a, b) => b.length - a.length
+  );
+
+  for (const key of sortedKeys) {
+    const replacement = pronunciationReplacements[key];
+    // Use word boundaries to avoid replacing parts of other words
+    const regex = new RegExp(`\\b${escapeRegex(key)}\\b`, "gi");
+    result = result.replace(regex, replacement);
+  }
+
+  return result;
+}
+
+/**
+ * Escape special regex characters in a string
+ */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -174,12 +266,19 @@ export function replaceMessageTemplates(message: string): string {
 // Notification Actions
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function playBeep(soundName: string = "Tink"): Promise<void> {
+export function playBeep(soundName: string = "Tink"): void {
   if (isMacOS()) {
-    child_process.exec(`afplay /System/Library/Sounds/${soundName}.aiff`);
+    // Non-blocking beep using spawn
+    child_process.spawn("afplay", [`/System/Library/Sounds/${soundName}.aiff`], {
+      detached: true,
+      stdio: "ignore",
+    }).unref();
   } else if (process.platform === "linux") {
     try {
-      child_process.exec("paplay /usr/share/sounds/freedesktop/stereo/bell.oga");
+      child_process.spawn("paplay", ["/usr/share/sounds/freedesktop/stereo/bell.oga"], {
+        detached: true,
+        stdio: "ignore",
+      }).unref();
     } catch {
       child_process.exec("echo -e '\\a'");
     }
@@ -188,21 +287,19 @@ export async function playBeep(soundName: string = "Tink"): Promise<void> {
   }
 }
 
-export async function speakMessage(message: string): Promise<void> {
+export function speakMessage(message: string): void {
   if (!isSayAvailable()) return;
 
   const finalMessage = replaceMessageTemplates(message);
-  const escapedMessage = finalMessage.replace(/"/g, '\\"');
+  const messageWithPronunciations = applyPronunciations(finalMessage);
+  const escapedMessage = messageWithPronunciations.replace(/"/g, '\\"');
 
-  return new Promise((resolve, reject) => {
-    child_process.exec(`say -v Daniel "${escapedMessage}"`, (error) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-      resolve();
-    });
-  });
+  // Use spawn for non-blocking speech - doesn't wait for command to complete
+  // This prevents TUI from being blocked while speaking
+  child_process.spawn("say", ["-v", "Daniel", escapedMessage], {
+    detached: true,
+    stdio: "ignore",
+  }).unref();
 }
 
 export async function bringTerminalToFront(info: TerminalInfo): Promise<void> {
@@ -292,14 +389,16 @@ export async function notifyOnConfirm(
 
   const tasks: Promise<void>[] = [];
 
-  if (eff.beep) {
-    tasks.push(playBeep(eff.beepSound));
-  }
   if (eff.bringToFront) {
     tasks.push(bringTerminalToFront(terminalInfo));
   }
+
+  // Non-blocking: beep and speech play in background
+  if (eff.beep) {
+    playBeep(eff.beepSound);
+  }
   if (eff.say) {
-    tasks.push(speakMessage(eff.sayMessage));
+    speakMessage(eff.sayMessage);
   }
 
   await Promise.all(tasks);
