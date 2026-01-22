@@ -43,6 +43,9 @@ import {
   checkSayAvailable,
   loadPronunciations,
   notifyOnConfirm,
+  bringTerminalToFront,
+  playBeep,
+  speakMessage,
 } from "../../shared";
 
 type PromptLevel = "high" | "medium" | "none";
@@ -282,22 +285,22 @@ export default function (pi: ExtensionAPI) {
             ? `${icon} ⚠️ HIGH RISK: Git ${action} requires approval`
             : `${icon} Git ${action} requires approval`;
 
-        // Trigger notifications BEFORE showing the confirmation prompt
-        // so the user is alerted that their attention is needed
-        // NOTE: notifyOnConfirm returns quickly now (non-blocking for beep/speech)
-        // but we still want bringToFront to complete before showing the prompt
+        // Trigger notifications BEFORE showing the confirmation prompt.
+        // We execute audio notifications asynchronously to prevent any delay in showing the prompt,
+        // while awaiting window focus to ensure the prompt is seen.
         if (notifyConfig && (notifyConfig.beep || notifyConfig.bringToFront || notifyConfig.say)) {
-          const notifyPromise = notifyOnConfirm(notifyConfig, terminalInfo, {
-            beep: notifyConfig.beep,
-            bringToFront: notifyConfig.bringToFront,
-            say: notifyConfig.say,
-            sayMessage: "{session dir} needs your attention",
-          });
+          // 1. Fire audio notifications (fire-and-forget, next tick)
+          if (notifyConfig.beep) {
+            setTimeout(() => notifyConfig && playBeep(notifyConfig.beepSound), 0);
+          }
+          
+          if (notifyConfig.say) {
+            setTimeout(() => speakMessage("{session dir} needs your attention"), 0);
+          }
 
-          // Wait for bringToFront to complete, but don't wait for beep/speech
-          // This ensures terminal is front before the prompt, but doesn't block on audio
+          // 2. Bring to front (await if enabled)
           if (notifyConfig.bringToFront) {
-            await notifyPromise;
+            await bringTerminalToFront(terminalInfo);
           }
         }
 
