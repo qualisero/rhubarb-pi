@@ -41,6 +41,7 @@ import {
   type BackgroundNotifyConfig,
   detectTerminalInfo,
   checkSayAvailable,
+  loadPronunciations,
   notifyOnConfirm,
 } from "../../shared";
 
@@ -342,6 +343,7 @@ export default function (pi: ExtensionAPI) {
     // Initialize terminal detection and notifications
     terminalInfo = await detectTerminalInfo();
     await checkSayAvailable();
+    await loadPronunciations();
     notifyConfig = await getBackgroundNotifyConfig(ctx);
 
     if (ctx.hasUI) {

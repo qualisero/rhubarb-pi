@@ -27,6 +27,7 @@ import {
   detectTerminalInfo,
   isTerminalInBackground,
   checkSayAvailable,
+  loadPronunciations,
   BEEP_SOUNDS,
   SAY_MESSAGES,
   getCurrentDirName,
@@ -109,9 +110,10 @@ export default function (pi: ExtensionAPI) {
     // Reset session state
     resetSessionState(state);
 
-    // Detect terminal and check for say command
+    // Detect terminal, check for say command, and load pronunciations
     state.terminalInfo = await detectTerminalInfo();
     await checkSayAvailable();
+    await loadPronunciations();
   });
 
   pi.on("agent_start", () => {
@@ -157,7 +159,8 @@ export default function (pi: ExtensionAPI) {
       actions.push(NotificationAction.BroughtToFront);
     }
     if (eff.say) {
-      tasks.push(speakMessage(eff.sayMessage));
+      // speakMessage is non-blocking, don't add to tasks
+      speakMessage(eff.sayMessage);
       actions.push(NotificationAction.Spoke);
     }
 
@@ -290,20 +293,20 @@ function registerCommands(pi: ExtensionAPI, state: SessionState) {
         if (action === "🗣️  Use current message") {
           state.sayOverride = true;
           ctx.ui.notify(`🗣️  Speech ON ("${currentMessage}")`, "info");
-          await speakMessage(currentMessage);
+          speakMessage(currentMessage);
         } else if (action.startsWith("💬 ")) {
           const message = action.replace('💬 "', '').replace('"', '').replace(" ✓", "");
           state.sayOverride = true;
           state.sayMessageOverride = message;
           ctx.ui.notify(`🗣️  Speech ON ("${message}")`, "info");
-          await speakMessage(message);
+          speakMessage(message);
         } else if (action === "✏️  Enter custom message...") {
           const customMessage = await ctx.ui.input("Enter message to speak");
           if (customMessage && customMessage.trim()) {
             state.sayOverride = true;
             state.sayMessageOverride = customMessage.trim();
             ctx.ui.notify(`🗣️  Speech ON ("${customMessage.trim()}")`, "info");
-            await speakMessage(customMessage.trim());
+            speakMessage(customMessage.trim());
           }
         }
       }
