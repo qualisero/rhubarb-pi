@@ -150,8 +150,9 @@ export default function (pi: ExtensionAPI) {
     const tasks: Promise<void>[] = [];
     const actions: NotificationAction[] = [];
 
+    // Non-blocking: beep and speech play in background
     if (eff.beep) {
-      tasks.push(playBeep(eff.sound));
+      playBeep(eff.sound);
       actions.push(NotificationAction.Beeped);
     }
     if (eff.focus) {
@@ -159,7 +160,6 @@ export default function (pi: ExtensionAPI) {
       actions.push(NotificationAction.BroughtToFront);
     }
     if (eff.say) {
-      // speakMessage is non-blocking, don't add to tasks
       speakMessage(eff.sayMessage);
       actions.push(NotificationAction.Spoke);
     }
@@ -236,14 +236,14 @@ function registerCommands(pi: ExtensionAPI, state: SessionState) {
         if (action === "🔊 Use current sound") {
           state.beepOverride = true;
           ctx.ui.notify(`🔊 Beep ON (${currentSound})`, "info");
-          await playBeep(currentSound);
+          playBeep(currentSound);
         } else {
           const sound = extractOptionText(action, "🎵 ");
           if (sound) {
             state.beepOverride = true;
             state.beepSoundOverride = sound;
             ctx.ui.notify(`🔊 Beep ON (${sound})`, "info");
-            await playBeep(sound);
+            playBeep(sound);
           }
         }
       }

@@ -266,12 +266,19 @@ export function replaceMessageTemplates(message: string): string {
 // Notification Actions
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function playBeep(soundName: string = "Tink"): Promise<void> {
+export function playBeep(soundName: string = "Tink"): void {
   if (isMacOS()) {
-    child_process.exec(`afplay /System/Library/Sounds/${soundName}.aiff`);
+    // Non-blocking beep using spawn
+    child_process.spawn("afplay", [`/System/Library/Sounds/${soundName}.aiff`], {
+      detached: true,
+      stdio: "ignore",
+    }).unref();
   } else if (process.platform === "linux") {
     try {
-      child_process.exec("paplay /usr/share/sounds/freedesktop/stereo/bell.oga");
+      child_process.spawn("paplay", ["/usr/share/sounds/freedesktop/stereo/bell.oga"], {
+        detached: true,
+        stdio: "ignore",
+      }).unref();
     } catch {
       child_process.exec("echo -e '\\a'");
     }
@@ -382,14 +389,15 @@ export async function notifyOnConfirm(
 
   const tasks: Promise<void>[] = [];
 
-  if (eff.beep) {
-    tasks.push(playBeep(eff.beepSound));
-  }
   if (eff.bringToFront) {
     tasks.push(bringTerminalToFront(terminalInfo));
   }
+
+  // Non-blocking: beep and speech play in background
+  if (eff.beep) {
+    playBeep(eff.beepSound);
+  }
   if (eff.say) {
-    // speakMessage is non-blocking, so don't add to tasks
     speakMessage(eff.sayMessage);
   }
 
