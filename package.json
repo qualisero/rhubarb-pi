@@ -40,7 +40,7 @@
     "docs:check": "rg 'pi-hooks|dave-pi-hooks' . --glob='!node_modules/**' --glob='!.git/**' && echo '⚠ Found outdated naming references' || echo '✓ No outdated references'",
     "verify": "./verify.sh",
     "build": "npm run build:background-notify && npm run build:safe-git",
-    "build:background-notify": "esbuild hooks/background-notify/index.ts --bundle --platform=node --format=cjs --outfile=hooks/background-notify/index.js --external:@mariozechner/pi-coding-agent",
+    "build:background-notify": "esbuild hooks/background-notify/index.ts --bundle --platform=node --format=cjs --outfile=hooks/background-notify/index.js --external:@mariozechner/pi-coding-agent && node scripts/fix-export.js hooks/background-notify/index.js",
     "build:safe-git": "esbuild extensions/safe-git/index.ts --bundle --platform=node --format=cjs --outfile=extensions/safe-git/index.js --external:@mariozechner/pi-coding-agent && node scripts/fix-export.js extensions/safe-git/index.js",
     "test": "vitest run",
     "test:e2e": "vitest run --config vitest.config.ts",
