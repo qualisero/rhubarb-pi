@@ -45,7 +45,7 @@
     "test": "vitest run",
     "test:watch": "vitest watch",
     "prepublishOnly": "npm run build && npm test",
-    "install:global": "npm run build && mkdir -p ~/.pi/agent/extensions && ln -sf \"$(pwd)/dist/index.js\" ~/.pi/agent/extensions/pi-agent-scip.js && echo 'Symlinked to ~/.pi/agent/extensions/pi-agent-scip.js'",
+    "install:global": "npm run build && mkdir -p ~/.pi/agent/extensions && rm -f ~/.pi/agent/extensions/pi-agent-scip.js && ln -sf \"$(pwd)/dist\" ~/.pi/agent/extensions/pi-agent-scip && echo 'Symlinked dist to ~/.pi/agent/extensions/pi-agent-scip'",
     "uninstall:global": "rm -f ~/.pi/agent/extensions/pi-agent-scip.js ~/.pi/agent/extensions/pi-agent-scip && echo 'Uninstalled from ~/.pi/agent/extensions/'"
   },
   "dependencies": {

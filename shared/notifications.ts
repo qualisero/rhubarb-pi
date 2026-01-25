@@ -5,7 +5,8 @@
 import type { TerminalInfo, BackgroundNotifyConfig } from "./types";
 import * as child_process from "node:child_process";
 import { promisify } from "node:util";
-import * as fs from "node:fs/promises";
+import * as fs from "node:fs";
+import * as fsPromises from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 
@@ -28,7 +29,7 @@ async function parsePronunciationsPlist(
   plistPath: string
 ): Promise<PronunciationReplacements> {
   try {
-    const content = await fs.readFile(plistPath, "utf-8");
+    const content = await fsPromises.readFile(plistPath, "utf-8");
     const replacements: PronunciationReplacements = {};
 
     // Simple regex-based parser for the specific plist structure
@@ -128,17 +129,12 @@ export const SAY_MESSAGES = [
 ];
 
 const TERMINAL_BUNDLE_IDS: Record<string, string> = {
-  "com.apple.Terminal": "Terminal",
-  "Apple_Terminal": "Terminal",
   "com.googlecode.iterm2": "iTerm2",
   "iTerm.app": "iTerm2",
-  "com.github.wez.wezterm": "WezTerm",
-  "WezTerm": "WezTerm",
-  "net.kovidgoyal.kitty": "kitty",
-  "kitty": "kitty",
-  "com.mitchellh.ghostty": "Ghostty",
-  "Ghostty": "Ghostty",
 };
+
+// Bundle IDs that support iTerm2 Python API (both old and new)
+const ITERM2_BUNDLE_IDS = ["com.googlecode.iterm2", "iTerm.app"];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Platform Detection
@@ -213,7 +209,7 @@ export async function detectTerminalInfo(): Promise<TerminalInfo> {
         const match = stdout.match(/"CFBundleIdentifier"="([^"]+)"/);
         if (match) info.terminalApp = match[1];
       } catch {
-        info.terminalApp = "com.apple.Terminal";
+        info.terminalApp = "com.googlecode.iterm2";
       }
     }
   } catch {}
@@ -241,6 +237,46 @@ export async function isTerminalInBackground(info: TerminalInfo): Promise<boolea
   } catch {
     return false;
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Terminal-Notifier Detection
+// ─────────────────────────────────────────────────────────────────────────────
+
+let terminalNotifierAvailable = false;
+let terminalNotifierChecked = false;
+const TERMINAL_NOTIFIER_PATHS = [
+  "/Applications/terminal-notifier.app/Contents/MacOS/terminal-notifier",
+  "/usr/local/bin/terminal-notifier",
+  "/opt/homebrew/bin/terminal-notifier",
+];
+
+export async function checkTerminalNotifierAvailable(): Promise<boolean> {
+  if (!isMacOS() || terminalNotifierChecked) {
+    return terminalNotifierAvailable;
+  }
+
+  try {
+    // Check if terminal-notifier is available
+    await execAsync("which terminal-notifier");
+    // Also check the app bundle path
+    for (const path of TERMINAL_NOTIFIER_PATHS) {
+      try {
+        await execAsync(`test -f "${path}"`);
+        terminalNotifierAvailable = true;
+        break;
+      } catch {}
+    }
+  } catch {
+    terminalNotifierAvailable = false;
+  }
+
+  terminalNotifierChecked = true;
+  return terminalNotifierAvailable;
+}
+
+export function isTerminalNotifierAvailable(): boolean {
+  return terminalNotifierAvailable;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -287,6 +323,129 @@ export function playBeep(soundName: string = "Tink"): void {
   }
 }
 
+export function displayOSXNotification(
+  message: string,
+  soundName?: string,
+  terminalInfo?: TerminalInfo
+): void {
+  if (!isMacOS()) {
+    // Fallback to regular beep on non-macOS
+    if (soundName) {
+      playBeep(soundName);
+    }
+    return;
+  }
+
+  const finalMessage = replaceMessageTemplates(message);
+
+  // ALWAYS use iTerm2 bundle ID
+  const terminalBundleId = "com.googlecode.iterm2";
+
+  // Use terminal-notifier if available, otherwise fallback to osascript
+  if (terminalNotifierAvailable) {
+    // Try to activate specific tab via Python API if TTY info is available
+    if (terminalInfo?.terminalTTY) {
+      const tty = terminalInfo.terminalTTY;
+
+      // Create Python script to find and activate tab by TTY
+      const pythonScript = `#!/usr/bin/env python3
+import sys
+import os
+
+tty = "${tty}"
+
+try:
+    import iterm2
+
+    async def main(connection):
+        app = await iterm2.async_get_app(connection)
+
+        # Search all windows and tabs for matching TTY
+        for window in app.terminal_windows:
+            for tab in window.tabs:
+                for session in tab.sessions:
+                    # Check if this session's TTY matches
+                    try:
+                        session_tty = await session.async_get_variable("tty")
+                        if session_tty == tty or (session_tty and tty in str(session_tty)) or (tty and str(session_tty) in tty):
+                            # Found matching tab
+                            # Explicitly activate app then tab to ensure window comes to front
+                            await app.async_activate()
+                            await tab.async_activate(order_window_front=True)
+                            return
+                    except:
+                        pass
+
+        # If no TTY match found, just activate iTerm2
+        await app.async_activate()
+
+    iterm2.run_until_complete(main)
+
+except Exception:
+    sys.exit(1)
+`;
+
+      // Write Python script to temp file (synchronous is fine)
+      const tmpFile = path.join(os.tmpdir(), `pi-notifier-${Date.now()}.py`);
+      fs.writeFileSync(tmpFile, pythonScript, "utf-8");
+
+      const args = [
+        "-message", finalMessage,
+        "-title", "Task Complete",
+        "-activate", terminalBundleId,
+        "-execute", `/opt/homebrew/Caskroom/miniconda/base/bin/python3 "${tmpFile}"`,
+      ];
+
+      if (soundName) {
+        args.push("-sound", soundName);
+      }
+
+      child_process.spawn("terminal-notifier", args, {
+        detached: true,
+        stdio: "ignore",
+      }).unref();
+    } else {
+      // Fallback: activate iTerm2 app
+      const args = [
+        "-message", finalMessage,
+        "-title", "Task Complete",
+        "-activate", terminalBundleId,
+      ];
+
+      if (soundName) {
+        args.push("-sound", soundName);
+      }
+
+      child_process.spawn("terminal-notifier", args, {
+        detached: true,
+        stdio: "ignore",
+      }).unref();
+    }
+    return;
+  }
+
+  // Fallback to osascript (built-in)
+  const escapedMessage = finalMessage
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"');
+
+  // ALWAYS use iTerm2
+  const terminalAppName = "iTerm2";
+
+  let script = `tell application "${terminalAppName}" to display notification "${escapedMessage}" with title "Task Complete"`;
+
+  if (soundName) {
+    script += ` sound name "${soundName}"`;
+  }
+
+  // Non-blocking: use spawn with detached and unref
+  // This prevents TUI from being blocked while notification displays
+  child_process.spawn("osascript", ["-e", script], {
+    detached: true,
+    stdio: "ignore",
+  }).unref();
+}
+
 export function speakMessage(message: string): void {
   if (!isSayAvailable()) return;
 
@@ -306,31 +465,10 @@ export async function bringTerminalToFront(info: TerminalInfo): Promise<void> {
   if (!isMacOS()) return;
 
   try {
-    let appName = "Terminal";
-    if (info.terminalApp) {
-      for (const [key, value] of Object.entries(TERMINAL_BUNDLE_IDS)) {
-        if (info.terminalApp.includes(key) || key.includes(info.terminalApp)) {
-          appName = value;
-          break;
-        }
-      }
-    }
+    let appName = "iTerm2";
 
     let script: string;
-    if (appName === "Terminal" && info.terminalTTY) {
-      script = `tell application "Terminal"
-  activate
-  repeat with w in windows
-    repeat with t in tabs of w
-      if tty of t is "${info.terminalTTY}" then
-        set index of w to 1
-        set selected of t to true
-        return
-      end if
-    end repeat
-  end repeat
-end tell`;
-    } else if (appName === "iTerm2" && info.terminalTTY) {
+    if (info.terminalTTY) {
       script = `tell application "iTerm2"
   repeat with w in windows
     set tabIdx to 0
@@ -347,16 +485,16 @@ end tell`;
   end repeat
 end tell`;
     } else {
-      script = `tell application "${appName}" to activate`;
+      script = `tell application "iTerm2" to activate`;
     }
 
     const tmpFile = path.join(os.tmpdir(), `pi-terminal-${Date.now()}.scpt`);
     try {
-      await fs.writeFile(tmpFile, script, "utf8");
+      await fsPromises.writeFile(tmpFile, script, "utf8");
       await execAsync(`osascript "${tmpFile}"`);
     } finally {
       try {
-        await fs.unlink(tmpFile);
+        await fsPromises.unlink(tmpFile);
       } catch {}
     }
   } catch {}
