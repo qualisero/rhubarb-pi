@@ -22,7 +22,8 @@
  *   },
  *   "backgroundNotify": {
  *     "beep": true,
- *     "bringToFront": true,
+ *     "beepSound": "Funk",
+ *     "bringToFront": false,
  *     "say": false,
  *     "sayMessage": "Confirmation required"
  *   }
@@ -42,9 +43,11 @@ import {
   detectTerminalInfo,
   checkSayAvailable,
   loadPronunciations,
+  checkTerminalNotifierAvailable,
   notifyOnConfirm,
   bringTerminalToFront,
   playBeep,
+  displayOSXNotification,
   speakMessage,
 } from "../../shared";
 
@@ -286,14 +289,19 @@ export default function (pi: ExtensionAPI) {
             : `${icon} Git ${action} requires approval`;
 
         // Trigger notifications BEFORE showing the confirmation prompt.
-        // We execute audio notifications asynchronously to prevent any delay in showing the prompt,
+        // We execute notifications asynchronously to prevent any delay in showing the prompt,
         // while awaiting window focus to ensure the prompt is seen.
         if (notifyConfig && (notifyConfig.beep || notifyConfig.bringToFront || notifyConfig.say)) {
-          // 1. Fire audio notifications (fire-and-forget, next tick)
+          // 1. Fire OS X notification with sound (fire-and-forget, next tick)
           if (notifyConfig.beep) {
-            setTimeout(() => notifyConfig && playBeep(notifyConfig.beepSound), 0);
+            setTimeout(
+              () =>
+                notifyConfig &&
+                displayOSXNotification("Git approval required", notifyConfig.beepSound, terminalInfo),
+              0
+            );
           }
-          
+
           if (notifyConfig.say) {
             setTimeout(() => speakMessage("{session dir} needs your attention"), 0);
           }
@@ -354,6 +362,7 @@ export default function (pi: ExtensionAPI) {
     // Initialize terminal detection and notifications
     terminalInfo = await detectTerminalInfo();
     await checkSayAvailable();
+    await checkTerminalNotifierAvailable();
     await loadPronunciations();
     notifyConfig = await getBackgroundNotifyConfig(ctx);
 

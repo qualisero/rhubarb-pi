@@ -8,8 +8,8 @@
  *   "backgroundNotify": {
  *     "thresholdMs": 2000,
  *     "beep": true,
- *     "beepSound": "Tink",
- *     "bringToFront": true,
+ *     "beepSound": "Funk",
+ *     "bringToFront": false,
  *     "say": false,
  *     "sayMessage": "Task completed"
  *   }
@@ -17,17 +17,23 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import * as fs from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
 import {
   getBackgroundNotifyConfig,
   type BackgroundNotifyConfig,
   type TerminalInfo,
   playBeep,
+  displayOSXNotification,
   speakMessage,
   bringTerminalToFront,
   detectTerminalInfo,
   isTerminalInBackground,
   checkSayAvailable,
   loadPronunciations,
+  checkTerminalNotifierAvailable,
+  isTerminalNotifierAvailable,
   BEEP_SOUNDS,
   SAY_MESSAGES,
   getCurrentDirName,
@@ -52,10 +58,10 @@ interface SessionState {
 const DEFAULT_CONFIG: BackgroundNotifyConfig = {
   thresholdMs: 2000,
   beep: true,
-  beepSound: "Tink",
-  bringToFront: true,
+  beepSound: "Funk",
+  bringToFront: false,
   say: false,
-  sayMessage: "Task completed",
+  sayMessage: "Done in {dirname}",
 };
 
 enum NotificationAction {
@@ -110,10 +116,15 @@ export default function (pi: ExtensionAPI) {
     // Reset session state
     resetSessionState(state);
 
-    // Detect terminal, check for say command, and load pronunciations
+    // Detect terminal, check for say command, check for terminal-notifier, and load pronunciations
     state.terminalInfo = await detectTerminalInfo();
     await checkSayAvailable();
+    await checkTerminalNotifierAvailable();
     await loadPronunciations();
+
+    if (ctx.hasUI && (await isTerminalNotifierAvailable())) {
+      ctx.ui.notify("📢 Using terminal-notifier for notifications (clicking will activate Terminal)", "info");
+    }
   });
 
   pi.on("agent_start", () => {
@@ -150,9 +161,10 @@ export default function (pi: ExtensionAPI) {
     const tasks: Promise<void>[] = [];
     const actions: NotificationAction[] = [];
 
-    // Non-blocking: beep and speech play in background
+    // Non-blocking: OS X notification (includes sound on macOS), speech plays in background
     if (eff.beep) {
-      playBeep(eff.sound);
+      const notificationMessage = replaceMessageTemplates(eff.sayMessage);
+      displayOSXNotification(notificationMessage, eff.sound, state.terminalInfo);
       actions.push(NotificationAction.Beeped);
     }
     if (eff.focus) {
@@ -188,16 +200,31 @@ function getEffective(state: SessionState, config: BackgroundNotifyConfig) {
 
 async function saveGlobalSettings(ctx: ExtensionContext, updates: Partial<BackgroundNotifyConfig>): Promise<void> {
   try {
-    const settings = await (ctx as any).settingsManager?.getSettings() ?? {};
-    settings.backgroundNotify = {
-      ...(settings.backgroundNotify ?? {}),
+    // Read existing settings file
+    const settingsPath = path.join(os.homedir(), ".pi", "agent", "settings.json");
+    let fileSettings: any = {};
+
+    try {
+      const content = await fs.readFile(settingsPath, "utf8");
+      fileSettings = JSON.parse(content);
+    } catch {
+      // File doesn't exist or is invalid, start fresh
+    }
+
+    // Merge updates
+    fileSettings.backgroundNotify = {
+      ...(fileSettings.backgroundNotify ?? {}),
       ...updates,
     };
-    // Note: We'd need to implement settings saving if there's a settingsManager API
-    // For now, this is a placeholder for future enhancement
-    console.log("Would save settings:", updates);
+
+    // Write back to file
+    await fs.mkdir(path.dirname(settingsPath), { recursive: true });
+    await fs.writeFile(settingsPath, JSON.stringify(fileSettings, null, 2), "utf8");
+
+    console.log("Settings saved to:", settingsPath, updates);
   } catch (err) {
     console.error("Failed to save settings:", err);
+    throw err;
   }
 }
 
